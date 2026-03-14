@@ -295,18 +295,8 @@
 (defn draw-title [ren font mode level]
   (fill ren 0 TITLE-Y WIN-W TITLE-H COL-DARK)
   (outline ren 0 TITLE-Y WIN-W TITLE-H COL-SEP)
-  (let [lbl (if (= level 0) "SOLACE" "XAK TSAROTH")
-        mode-lbl (case mode
-                   :explore  "EXPLORE"
-                   :combat   "COMBAT"
-                   :dialog   "DIALOG"
-                   :inventory "INVENTORY"
-                   :map      "MAP"
-                   "")]
-    (text ren font (string "DRAGONLANCE  |  " lbl "  |  " mode-lbl) 8 8 COL-GOLD))
-  # Key hint strip
   (let [hints "Arrows:Move  T:Talk  C:Rest  I:Inv  A:Attack  S:Spell  F:Flee"]
-    (text ren font hints 520 8 COL-GRAY)))
+    (text ren font hints 8 8 COL-GRAY)))
 
 # ── Party stats bar ───────────────────────────────────────────
 
@@ -404,7 +394,14 @@
       # :explore and default
       (do
         (draw-3d-view ren font tiles player)
-        (draw-text-panel ren font [] "AREA INFO")
+        (let [loc-name  (if (= level 0) "Solace, Abanasinia" "Ruins of Xak Tsaroth")
+              dir-name  (case (player :dir)
+                          :north "North" :south "South"
+                          :east  "East"  :west  "West" "?")
+              area-lines [(string "Location: " loc-name)
+                          (string "Facing:   " dir-name)
+                          (string "Position: " (player :x) ", " (player :y))]]
+          (draw-text-panel ren font area-lines "AREA INFO"))
         (draw-minimap ren font tiles fog player)))
 
     (draw-party-bar ren font par act-idx)

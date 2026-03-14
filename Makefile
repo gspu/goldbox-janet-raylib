@@ -49,21 +49,20 @@ SRC    = janet_raylib.c
 
 all: native
 
-native: $(MODULE)
-	cp $(MODULE) src/
+native: src/$(MODULE)
 
-$(MODULE): $(SRC) Makefile
-	$(CC) $(CFLAGS) -o $@ $(SRC) $(LDFLAGS)
+src/$(MODULE): $(SRC) Makefile
+	$(CC) $(CFLAGS) -o src/$(MODULE) $(SRC) $(LDFLAGS)
 
 clean:
-	rm -f $(MODULE) src/$(MODULE)
+	rm -f src/$(MODULE)
 
 run: native
 	cd src && $(JANET) main.janet
 
 # Verify _janet_init is exported
-symbols: $(MODULE)
-	@nm -g $(MODULE) | grep -q _janet_init \
+symbols: src/$(MODULE)
+	@nm -g src/$(MODULE) | grep -q _janet_init \
 	    && echo "OK: _janet_init exported" \
 	    || (echo "ERROR: _janet_init not found"; exit 1)
 
@@ -76,8 +75,8 @@ show-entry:
 	$(CC) $(CFLAGS) -E janet_raylib.c | grep -A3 "rl_entry\|_janet_init\|module_entry\|asm"
 
 # Dump all exported symbols from the built .so
-show-symbols: $(MODULE)
-	nm -g $(MODULE) | grep " T "
+show-symbols: src/$(MODULE)
+	nm -g src/$(MODULE) | grep " T "
 
 # ── Installation notes ────────────────────────────────────────
 # FreeBSD:

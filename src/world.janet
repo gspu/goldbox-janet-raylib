@@ -244,16 +244,14 @@
 
 (defn ascend! [world]
   (let [data (level-data 0)
-        # Return to stairs-up position on level 0
-        stair-x 10
-        stair-y 13]
+        [sx sy sdir] (data :spawn)]
     (put world :level 0)
     (put world :tiles    (array/slice (data :tiles)))
     (put world :entities (make-entities (data :npcs)))
     (put world :fog      (array/new-filled (* MAP-W MAP-H) true))
-    (put (world :player) :x stair-x)
-    (put (world :player) :y stair-y)
-    (put (world :player) :dir :south)))
+    (put (world :player) :x sx)
+    (put (world :player) :y sy)
+    (put (world :player) :dir sdir)))
 
 (defn reveal-fog! [world]
   "Mark the 3x3 cells around the player as explored."

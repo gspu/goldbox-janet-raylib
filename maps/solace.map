@@ -9,7 +9,7 @@
 # Grid: exactly 16 columns x 16 rows (no spaces).
 
 level 0
-spawn 2 2 north
+spawn 4 3 north
 
 map
 ################
