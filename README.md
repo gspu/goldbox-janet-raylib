@@ -4,10 +4,6 @@ A "vibe" recreation of the SSI Gold Box RPG engine,
 written in [Janet](https://janet-lang.org/) with a raylib C native module,
 targeting **FreeBSD** and **Linux**.
 
-This branch replaces the original `sdl2` / `sdl2_ttf` back-end with
-[raylib](https://www.raylib.com/) — a single-header, dependency-free
-graphics library that bundles its own font renderer.
-
 ```
 ╔══════════════════════════════════════════════════════════════════════════════════╗
 ║  DRAGONLANCE  |  Arrows:Move  T:Talk  C:Rest  I:Inv  A:Attack  S:Spell  F:Flee ║
@@ -23,33 +19,6 @@ graphics library that bundles its own font renderer.
 ║ > The War of the Lance has begun. Takhisis stirs.                             ║
 ╚═══════════════════════════════════════════════════════════════════════════════╝
 ```
-
----
-
-## What changed from the SDL2 version
-
-| SDL2 back-end | raylib back-end |
-|---|---|
-| `janet_sdl2.c` + `janet_sdl2.map` | `janet_raylib.c` + `janet_raylib.map` |
-| `pkg install sdl2 sdl2_ttf dejavu` | `pkg install raylib dejavu` |
-| `SDL_Init / SDL_Quit` | `InitWindow / CloseWindow` (called inside `create-window`) |
-| `SDL_CreateRenderer` | no-op — raylib has an implicit renderer |
-| `SDL_RenderClear` | `BeginDrawing + ClearBackground` |
-| `SDL_RenderPresent` | `EndDrawing` (also populates the event ring-buffer) |
-| `TTF_OpenFont` | `LoadFontEx` |
-| `TTF_RenderText + Blit` | `DrawTextEx` |
-| `SDL_PollEvent` queue | Internal ring-buffer drained by `(rl/poll-events)` |
-
-All Janet source files (`main.janet`, `engine.janet`, `ui.janet`, etc.) are
-**functionally identical** to the SDL2 version.  The only in-file change is:
-
-```janet
-(import ./janet_sdl2 :as sdl)   ; old
-(import ./janet_raylib :as rl)  ; new
-```
-
-All `sdl/` call-sites become `rl/`; every function signature and return type
-is preserved.
 
 ---
 
@@ -188,29 +157,6 @@ goldbox-janet/
 ```
 
 ---
-
-## Architecture
-
-### Event bridging
-
-The central design challenge of the SDL2→raylib migration:
-SDL2 has a **push-based event queue** (`SDL_PollEvent`); raylib has
-**per-frame input predicates** (`IsKeyPressed`).
-
-The C module bridges them with an internal ring-buffer:
-
-```
-BeginDrawing/EndDrawing (called by rl/clear and rl/present)
-  └─► populate_events()   ← called at the end of every frame
-        ├─ IsKeyPressed(k) → evq_push(KEYDOWN, k)
-        └─ IsKeyReleased(k)→ evq_push(KEYUP, k)
-
-Janet game loop:
-  (var ev (rl/poll-events))   ← drains one event per call
-  (while ev ...)
-```
-
-This means the Janet `main` loop is identical to the SDL2 version.
 
 ### Game state
 
