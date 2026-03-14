@@ -1,27 +1,10 @@
-# Gold Box Engine — raylib port
+# Gold Box Engine
 
 A "vibe" recreation of the SSI Gold Box RPG engine,
 written in [Janet](https://janet-lang.org/) with a raylib C native module,
 targeting **FreeBSD** and **Linux**.
 
 ```
-╔══════════════════════════════════════════════════════════════════════════════════╗
-║  DRAGONLANCE  |  Arrows:Move  T:Talk  C:Rest  I:Inv  A:Attack  S:Spell  F:Flee ║
-╠══════════════════╦═══════════════════════════╦═══════════════════════════════  ║
-║                  ║                           ║                               ║ ║
-║  3D First-Person ║   Area Info / Combat Log  ║         Minimap               ║ ║
-║      View        ║      / Dialog Panel       ║                               ║ ║
-║     512×420      ║          310×420          ║         202×420               ║ ║
-║                  ║                           ║                               ║ ║
-╠══════════════════╩═══════════════════════════╩═══════════════════════════════╣
-║  Tanis  Lv3  ████   Raistlin  Lv3  ██   Goldmoon  Lv3  ████   Tas  Lv3  ███  ║
-╠═══════════════════════════════════════════════════════════════════════════════╣
-║ > The War of the Lance has begun. Takhisis stirs.                             ║
-╚═══════════════════════════════════════════════════════════════════════════════╝
-```
-
----
-
 ## Prerequisites
 
 ### FreeBSD
