@@ -9,7 +9,7 @@ targeting **FreeBSD** and **Linux**.
 
 ### FreeBSD
 ```sh
-pkg install janet raylib dejavu
+pkg install janet jpm raylib dejavu
 ```
 
 ### Linux (Debian / Ubuntu)
