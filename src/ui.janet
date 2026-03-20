@@ -13,10 +13,10 @@
 # └─────────────────────────────────────────────────────────────┘
 #
 # The only change from the SDL2 version:
-#   (import ./janet_sdl2 :as sdl)  →  (import ./janet_raylib :as rl)
+#   (import ./janet_sdl2 :as sdl)  →  (import janet_raylib :as rl)
 # All rl/* calls are identical to the old sdl/* calls.
 
-(import ./janet_raylib :as rl)
+(import janet_raylib :as rl)
 (import ./world)
 (import ./party)
 (import ./combat)

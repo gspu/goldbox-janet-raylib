@@ -8,7 +8,7 @@
 #   * Frame pacing: raylib's SetTargetFPS(60) replaces the manual SDL_Delay loop.
 #   * Fonts: LoadFontEx replaces TTF_OpenFont; no sdl2_ttf dependency.
 
-(import ./janet_raylib :as rl)
+(import janet_raylib :as rl)
 (import ./engine)
 (import ./ui)
 

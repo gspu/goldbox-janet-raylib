@@ -3,7 +3,7 @@
 # The engine owns the mutable game-state table and routes
 # every keydown event to the correct handler for the current mode.
 
-(import ./janet_raylib :as rl)
+(import janet_raylib :as rl)
 (import ./world)
 (import ./party)
 (import ./combat)

@@ -111,7 +111,14 @@
 
 # Resolve path relative to this source file's directory
 # Janet scripts run from src/, so maps are at ../maps/
-(def MAP-DIR "../maps")
+# Resolve map directory: works from src/ (dev) and build/ (exe).
+(def MAP-DIR
+  (do
+    (var found "../maps")
+    (each c ["../maps" "./maps" (string (os/cwd) "/maps")]
+      (when (and (= found "../maps") (os/stat c))
+        (set found c)))
+    found))
 
 (def LEVEL-FILES
   {0 (string MAP-DIR "/solace.map")

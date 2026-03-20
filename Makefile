@@ -3,6 +3,7 @@
 # Run all targets from the repo root (goldbox-janet/).
 
 JANET   ?= janet
+JPM     ?= jpm
 CC      ?= cc
 
 # ── Janet ─────────────────────────────────────────────────────
@@ -12,28 +13,14 @@ JANET_LDFLAGS != pkg-config --libs   janet 2>/dev/null \
                  || echo -L/usr/local/lib -ljanet
 
 # ── Raylib ────────────────────────────────────────────────────
-# On FreeBSD:  pkg install raylib
-# On Linux:    apt install libraylib-dev   (or build from source)
 RL_CFLAGS  != pkg-config --cflags raylib 2>/dev/null \
               || echo -I/usr/local/include
 RL_LDFLAGS != pkg-config --libs   raylib 2>/dev/null \
               || echo -L/usr/local/lib -lraylib
 
-# raylib on FreeBSD/Linux needs these system libraries
 SYS_LDFLAGS ?= -lm -lpthread -ldl
 
 # ── Compile & link flags ──────────────────────────────────────
-#
-# Plain default symbol visibility — no -fvisibility flag.
-# _janet_init is exported along with all other globals; fine for a module.
-#
-# Intentionally NOT used:
-#   --version-script  — lld (FreeBSD default) rejects it when the named
-#                        symbol isn't resolved yet at script-parse time.
-#   -fvisibility=hidden — older Janet headers define JANET_MODULE_ENTRY
-#                        without JANET_API, so _janet_init gets hidden and
-#                        Janet reports "could not find the _janet_init symbol".
-#
 CFLAGS  = -O2 -fPIC -Wall -Wextra \
           $(JANET_CFLAGS) $(RL_CFLAGS)
 LDFLAGS = -shared \
@@ -45,22 +32,63 @@ MODULE = janet_raylib.so
 SRC    = janet_raylib.c
 
 # ── Targets ───────────────────────────────────────────────────
-.PHONY: all native clean run symbols debug
+.PHONY: all native clean run exe symbols debug show-entry show-symbols
 
 all: native
+
+# ── Development: .so + janet interpreter ──────────────────────
 
 native: src/$(MODULE)
 
 src/$(MODULE): $(SRC) Makefile
 	$(CC) $(CFLAGS) -o src/$(MODULE) $(SRC) $(LDFLAGS)
 
+run: native
+	cd src && JANET_PATH=. $(JANET) main.janet
+
+# ── Native executable via jpm ─────────────────────────────────
+#
+# Produces:  build/goldbox          (executable)
+#            build/janet_raylib.so  (native module, loaded at startup)
+#            build/maps/            (map data files)
+#
+# Install jpm (FreeBSD): ships with janet since 1.17 — try: which jpm
+# Install jpm (Linux):   https://github.com/janet-lang/jpm
+
+exe:
+	@command -v $(JPM) > /dev/null 2>&1 \
+	    || (echo "Error: jpm not found. Install with: pkg install janet"; exit 1)
+	# Build a bootstrap .so in a temp dir so jpm can load the module
+	# during Janet source evaluation without interfering with jpm's own
+	# build pipeline inside build/ (which creates .a, .static.o etc.)
+	mkdir -p .jpm-bootstrap
+	$(CC) $(CFLAGS) -o .jpm-bootstrap/$(MODULE) $(SRC) $(LDFLAGS)
+	# Remove dev .so from src/ so jpm doesn't find a stale copy there
+	rm -f src/$(MODULE)
+	# JANET_PATH=.jpm-bootstrap lets jpm evaluate main.janet and find
+	# the module; jpm's own build/ pipeline runs completely uninterrupted
+	JANET_PATH=.jpm-bootstrap $(JPM) build
+	rm -rf .jpm-bootstrap
+	# Rebuild dev .so so make run still works
+	$(MAKE) native
+	cp -r maps build/maps
+	rm -f build/*.o build/*.c build/*.meta.janet build/*.a
+	@echo ""
+	@echo "Build contents:"
+	@ls -lh build/
+	@echo ""
+	@echo "Run:    cd build && ./goldbox"
+	@echo "Deploy: copy the entire build/ directory."
+
+# ── Clean ─────────────────────────────────────────────────────
+# Removes everything: dev .so and the entire build/ directory.
+
 clean:
 	rm -f src/$(MODULE)
+	rm -rf build/ .jpm-bootstrap/
 
-run: native
-	cd src && $(JANET) main.janet
+# ── Diagnostics ───────────────────────────────────────────────
 
-# Verify _janet_init is exported
 symbols: src/$(MODULE)
 	@nm -g src/$(MODULE) | grep -q _janet_init \
 	    && echo "OK: _janet_init exported" \
@@ -69,23 +97,12 @@ symbols: src/$(MODULE)
 debug: native
 	$(JANET) src/debug.janet 2>&1
 
-# Show what the preprocessor makes of the entry-point section.
-# Run this to diagnose symbol-naming issues: make show-entry
 show-entry:
-	$(CC) $(CFLAGS) -E janet_raylib.c | grep -A3 "rl_entry\|_janet_init\|module_entry\|asm"
+	$(CC) $(CFLAGS) -E $(SRC) | grep -A3 "rl_entry\|_janet_init\|module_entry\|asm"
 
-# Dump all exported symbols from the built .so
 show-symbols: src/$(MODULE)
 	nm -g src/$(MODULE) | grep " T "
 
 # ── Installation notes ────────────────────────────────────────
-# FreeBSD:
-#   pkg install janet raylib dejavu
-#
-# Linux (Debian/Ubuntu):
-#   sudo apt install janet libraylib-dev fonts-dejavu
-#
-# The game looks for the font at /usr/local/share/fonts/dejavu/
-# (FreeBSD) or /usr/share/fonts/truetype/dejavu/ (Linux Debian).
-# janet_raylib.c falls back to the built-in raylib font if the
-# file is not found, so the game is still playable without DejaVu.
+# FreeBSD:      pkg install janet raylib dejavu
+# Debian/Ubuntu: sudo apt install janet libraylib-dev fonts-dejavu
