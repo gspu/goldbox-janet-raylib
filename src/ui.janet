@@ -340,6 +340,8 @@
 # ── Inventory overlay ─────────────────────────────────────────
 
 (defn draw-inventory [font party active-idx]
+  # Dark backdrop over full screen
+  (fill 0 0 WIN-W WIN-H [0 0 0 180])
   (fill 100 100 824 568 COL-DARK)
   (outline 100 100 824 568 COL-GOLD)
   (text font "INVENTORY" 120 116 COL-GOLD)
@@ -442,8 +444,7 @@
         (do
           (draw-3d-view font tiles player level)
           (draw-text-panel font [] "INVENTORY")
-          (draw-minimap font tiles fog player)
-          (draw-inventory font par act-idx))
+          (draw-minimap font tiles fog player))
 
       # :explore and default
       (do
@@ -472,7 +473,9 @@
     (draw-party-bar font par act-idx)
     (draw-messages font msgs)
 
-    # Save/Load overlay — drawn last so it covers everything
+    # Overlays — drawn last so they cover the party bar
+    (when (= mode :inventory)
+      (draw-inventory font par act-idx))
     (when (= mode :savemenu)
       (draw-savemenu font state))
 
