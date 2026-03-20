@@ -8,6 +8,7 @@
 (import ./party)
 (import ./combat)
 (import ./rng)
+(import ./savegame)
 
 # ── Message log ───────────────────────────────────────────────
 
@@ -33,7 +34,10 @@
       :messages    @["The War of the Lance has begun. Takhisis stirs."
                      "Your party stands in Solace. Move with arrow keys."]
       :tick        0
-      :running     true}))
+      :running     true
+      :save-selected 0
+      :save-naming    false
+      :save-name-buf  ""}))
 
 # ── Helpers ───────────────────────────────────────────────────
 
@@ -144,6 +148,15 @@
                   (msg! state (string "You find a chest with " gold " gold pieces!"))))
             (msg! state "Nothing to interact with here.")))
 
+      # Save/Load menu
+      (= key rl/SC_F10)
+        (do (put state :save-selected 0)
+            (set-mode! state :savemenu))
+
+      # ESC in explore = quit game
+      (= key rl/SC_ESCAPE)
+        (put state :running false)
+
       # Party member select
       (= key rl/SC_F1) (put state :active-idx 0)
       (= key rl/SC_F2) (put state :active-idx 1)
@@ -220,6 +233,88 @@
     (= key rl/SC_F3) (put state :active-idx 2)
     (= key rl/SC_F4) (put state :active-idx 3)))
 
+# ── Save/Load menu handler ────────────────────────────────────
+# Key codes for printable characters used in name input.
+# We accept A-Z (65-90), a-z (97-122), 0-9 (48-57), space (32), hyphen (45).
+
+(defn- printable-char [key]
+  "Map raylib KEY_* codes to printable characters for name input.
+   Raylib letters are always KEY_A=65 .. KEY_Z=90 (uppercase codes only).
+   Digits: KEY_ZERO=48 .. KEY_NINE=57.
+   Special: KEY_SPACE=32  KEY_MINUS=45  KEY_APOSTROPHE=39
+            KEY_PERIOD=46  KEY_SLASH=47  KEY_SEMICOLON=59
+            KEY_EQUAL=61   KEY_LEFT_BRACKET=91  KEY_BACKSLASH=92
+            KEY_RIGHT_BRACKET=93  KEY_GRAVE=96"
+  (cond
+    (and (>= key 65) (<= key 90))  (string/from-bytes (+ key 32))  # A-Z → a-z
+    (and (>= key 48) (<= key 57))  (string/from-bytes key)          # 0-9
+    (= key 32)   " "
+    (= key 45)   "-"
+    (= key 46)   "."
+    (= key 95)   "_"   # KEY_KP_DECIMAL / underscore on some layouts
+    (= key 39)   "'"
+    nil))
+
+(defn- handle-savemenu-naming [state key]
+  "Handle key input while the user is typing a save name."
+  (let [buf (or (state :save-name-buf) "")
+        slot (state :save-selected)]
+    (cond
+      (= key rl/SC_ESCAPE)
+        (do (put state :save-naming false)
+            (put state :save-name-buf ""))
+
+      (= key rl/SC_RETURN)
+        (let [name (if (= buf "") (string "Save " (+ slot 1)) buf)]
+          (if (savegame/save! state slot name)
+            (do (msg! state (string "Saved: " name))
+                (put state :save-naming false)
+                (put state :save-name-buf "")
+                (set-mode! state :explore))
+            (do (put state :save-naming false)
+                (msg! state "Save failed!"))))
+
+      (= key rl/SC_BACKSPACE)
+        (when (> (length buf) 0)
+          (put state :save-name-buf (string/slice buf 0 (- (length buf) 1))))
+
+      # Printable character
+      (printable-char key)
+        (when (< (length buf) 24)
+          (put state :save-name-buf (string buf (printable-char key)))))))
+
+(defn- handle-savemenu [state key]
+  (if (state :save-naming)
+    (handle-savemenu-naming state key)
+    (let [slot (state :save-selected)]
+      (cond
+        (or (= key rl/SC_ESCAPE) (= key rl/SC_F10))
+          (set-mode! state :explore)
+
+        (= key rl/SC_UP)
+          (put state :save-selected (% (+ slot savegame/NUM-SLOTS -1) savegame/NUM-SLOTS))
+
+        (= key rl/SC_DOWN)
+          (put state :save-selected (% (+ slot 1) savegame/NUM-SLOTS))
+
+        # S = start name input, then save
+        (= key rl/SC_S)
+          (do (put state :save-naming true)
+              (put state :save-name-buf ""))
+
+        # L or Enter = load from selected slot
+        (or (= key rl/SC_RETURN) (= key rl/SC_L))
+          (if (savegame/load! state slot)
+            (do (msg! state (string "Game loaded from slot " (+ slot 1) "."))
+                (set-mode! state :explore))
+            (msg! state (string "Slot " (+ slot 1) " is empty.")))
+
+        # DEL = delete selected slot
+        (= key rl/SC_DELETE)
+          (if (savegame/delete! slot)
+            (msg! state (string "Slot " (+ slot 1) " deleted."))
+            (msg! state (string "Slot " (+ slot 1) " is already empty.")))))))
+
 # ── Top-level event dispatcher ────────────────────────────────
 
 (defn dispatch-key! [state key]
@@ -228,7 +323,8 @@
     :explore   (handle-explore   state key)
     :combat    (handle-combat    state key)
     :dialog    (handle-dialog    state key)
-    :inventory (handle-inventory state key)))
+    :inventory (handle-inventory state key)
+    :savemenu  (handle-savemenu  state key)))
 
 # ── Event loop step ───────────────────────────────────────────
 

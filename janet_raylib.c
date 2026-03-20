@@ -46,8 +46,17 @@ static int evq_pop(RLEvent *out)
 static const int WATCHED_KEYS[] = {
     KEY_UP, KEY_DOWN, KEY_LEFT, KEY_RIGHT,
     KEY_ENTER, KEY_ESCAPE, KEY_SPACE, KEY_BACKSPACE,
-    KEY_T, KEY_C, KEY_I, KEY_A, KEY_S, KEY_F,
-    KEY_F1, KEY_F2, KEY_F3, KEY_F4,
+    KEY_T, KEY_C, KEY_I, KEY_A, KEY_S, KEY_F, KEY_L,
+    /* All letters for name input */
+    KEY_B, KEY_D, KEY_E, KEY_G, KEY_H, KEY_J, KEY_K,
+    KEY_M, KEY_N, KEY_O, KEY_P, KEY_Q, KEY_R, KEY_U,
+    KEY_V, KEY_W, KEY_X, KEY_Y, KEY_Z,
+    /* Digits and punctuation for name input */
+    KEY_ZERO, KEY_ONE, KEY_TWO, KEY_THREE, KEY_FOUR,
+    KEY_FIVE, KEY_SIX, KEY_SEVEN, KEY_EIGHT, KEY_NINE,
+    KEY_SPACE, KEY_MINUS, KEY_PERIOD, KEY_APOSTROPHE,
+    KEY_F1, KEY_F2, KEY_F3, KEY_F4, KEY_F10,
+    KEY_DELETE,
     0
 };
 
@@ -114,6 +123,10 @@ static Janet cfun_create_window(int32_t argc, Janet *argv)
     SetTraceLogLevel(LOG_WARNING);
     InitWindow((int)w, (int)h, title);
     SetTargetFPS(60);
+    SetExitKey(0);  /* disable ESC closing the window — handled in Janet */
+    /* KEY_F10 is used for the save menu — F12 is avoided because
+     * raylib intercepts it internally to save screenshot000.png. */
+    SetTraceLogLevel(LOG_NONE);
     g_initialized = 1;
     return janet_wrap_integer(1);
 }
@@ -328,6 +341,7 @@ static void janet_raylib_register(JanetTable *env)
     janet_def(env, "SC_ESCAPE",    janet_wrap_integer(KEY_ESCAPE),    "KEY_ESCAPE");
     janet_def(env, "SC_SPACE",     janet_wrap_integer(KEY_SPACE),     "KEY_SPACE");
     janet_def(env, "SC_BACKSPACE", janet_wrap_integer(KEY_BACKSPACE), "KEY_BACKSPACE");
+    janet_def(env, "SC_DELETE",    janet_wrap_integer(KEY_DELETE),    "Delete save slot");
 
     /* Letter keys */
     janet_def(env, "SC_T",  janet_wrap_integer(KEY_T),  "Talk");
@@ -336,10 +350,12 @@ static void janet_raylib_register(JanetTable *env)
     janet_def(env, "SC_A",  janet_wrap_integer(KEY_A),  "Attack");
     janet_def(env, "SC_S",  janet_wrap_integer(KEY_S),  "Spell");
     janet_def(env, "SC_F",  janet_wrap_integer(KEY_F),  "Flee");
+    janet_def(env, "SC_L",  janet_wrap_integer(KEY_L),  "Load game");
 
     /* Function keys */
     janet_def(env, "SC_F1", janet_wrap_integer(KEY_F1), "Party member 1");
     janet_def(env, "SC_F2", janet_wrap_integer(KEY_F2), "Party member 2");
     janet_def(env, "SC_F3", janet_wrap_integer(KEY_F3), "Party member 3");
-    janet_def(env, "SC_F4", janet_wrap_integer(KEY_F4), "Party member 4");
+    janet_def(env, "SC_F4",  janet_wrap_integer(KEY_F4),  "Party member 4");
+    janet_def(env, "SC_F10", janet_wrap_integer(KEY_F10), "Save/Load menu");
 }

@@ -20,6 +20,7 @@
 (import ./world)
 (import ./party)
 (import ./combat)
+(import ./savegame)
 
 # ── Layout constants ─────────────────────────────────────────
 
@@ -310,7 +311,7 @@
 (defn draw-title [ren font mode level]
   (fill ren 0 TITLE-Y WIN-W TITLE-H COL-DARK)
   (outline ren 0 TITLE-Y WIN-W TITLE-H COL-SEP)
-  (let [hints "Arrows:Move  T:Talk  C:Rest  I:Inv  A:Attack  S:Spell  F:Flee"]
+  (let [hints "Arrows:Move  T:Talk  C:Rest  I:Inv  A:Attack  S:Spell  F:Flee  F10:Save/Load  ESC:Quit"]
     (text ren font hints 8 8 COL-GRAY)))
 
 # ── Party stats bar ───────────────────────────────────────────
@@ -362,6 +363,51 @@
       (eachp [idx sp] (ch :spells)
         (text ren font (string "  " sp) 120 (+ 250 (* idx 18)) COL-WHITE))))
   (text ren font "Press I to close" 120 620 COL-GRAY))
+
+# ── Save / Load menu overlay ──────────────────────────────────
+
+(defn draw-savemenu [ren font state]
+  "Draw the 10-slot save/load overlay covering the full screen height."
+  (let [bx   80    # box x
+        by   60    # box y — high enough to cover everything incl. party bar
+        bw  864    # box width
+        bh  648    # box height — extends to bottom of screen
+        act  (state :save-selected)
+        naming (state :save-naming)   # true when typing a name
+        name-buf (or (state :save-name-buf) "")]
+
+    # Dark semi-transparent backdrop over entire screen
+    (fill ren 0 0 WIN-W WIN-H [0 0 0 180])
+
+    # Panel
+    (fill    ren bx by bw bh COL-DARK)
+    (outline ren bx by bw bh COL-GOLD)
+
+    # Title
+    (text ren font "SAVE / LOAD GAME" (+ bx 300) (+ by 12) COL-GOLD)
+    (line ren bx (+ by 34) (+ bx bw) (+ by 34) COL-SEP)
+
+    # Instructions
+    (if naming
+      (do
+        (text ren font "Enter save name  a-z 0-9 - .  (Enter confirm, ESC cancel):"
+              (+ bx 16) (+ by 42) COL-YELLOW)
+        (text ren font (string "> " name-buf "_") (+ bx 16) (+ by 60) COL-WHITE))
+      (text ren font
+            "S:Save  L:Load  DEL:Delete  ↑↓:Select slot  ESC:Close"
+            (+ bx 16) (+ by 42) COL-GRAY))
+
+    # 10 slots
+    (for i 0 savegame/NUM-SLOTS
+      (let [sy      (+ by 84 (* i 56))
+            info    (savegame/slot-info i)
+            selected (= i act)
+            bg-col  (if selected [40 40 80 255] [15 15 30 255])
+            txt-col (if selected COL-CYAN COL-WHITE)]
+        (fill    ren (+ bx 16) sy (- bw 32) 50 bg-col)
+        (outline ren (+ bx 16) sy (- bw 32) 50
+                 (if selected COL-CYAN COL-SEP))
+        (text ren font info (+ bx 28) (+ sy 16) txt-col)))))
 
 # ── Full-frame render ─────────────────────────────────────────
 
@@ -432,5 +478,9 @@
 
     (draw-party-bar ren font par act-idx)
     (draw-messages  ren font msgs)
+
+    # Save/Load overlay — drawn last so it covers everything
+    (when (= mode :savemenu)
+      (draw-savemenu ren font state))
 
     (rl/present ren)))

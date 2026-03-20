@@ -118,5 +118,6 @@ show-symbols: src/$(MODULE)
 	nm -g src/$(MODULE) | grep " T "
 
 # ── Installation notes ────────────────────────────────────────
-# FreeBSD:      pkg install janet jpm raylib dejavu patchelf
-# Debian/Ubuntu: sudo apt install janet libraylib-dev fonts-dejavu patchelf
+# FreeBSD:      pkg install janet jpm raylib dejavu
+# Debian/Ubuntu: sudo apt install janet libraylib-dev fonts-dejavu
+# patchelf is optional — without it run: cd build && env LD_LIBRARY_PATH=. ./goldbox

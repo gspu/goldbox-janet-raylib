@@ -6,18 +6,18 @@ targeting **FreeBSD** and **Linux**.
 
 ```
 ╔══════════════════════════════════════════════════════════════════════════════════╗
-║  Arrows:Move  T:Talk  C:Rest  I:Inv  A:Attack  S:Spell  F:Flee                 ║
-╠══════════════════╦═══════════════════════════╦═══════════════════════════════  ║
-║                  ║                           ║                               ║ ║
-║  3D First-Person ║   Area Info / Combat Log  ║         Minimap               ║ ║
-║      View        ║      / Dialog Panel       ║                               ║ ║
-║     512×420      ║          310×420          ║         202×420               ║ ║
-║                  ║                           ║                               ║ ║
-╠══════════════════╩═══════════════════════════╩═══════════════════════════════╣
-║  Tanis  Lv3  ████   Raistlin  Lv3  ██   Goldmoon  Lv3  ████   Tas  Lv3  ███  ║
-╠═══════════════════════════════════════════════════════════════════════════════╣
-║ > The War of the Lance has begun. Takhisis stirs.                             ║
-╚═══════════════════════════════════════════════════════════════════════════════╝
+║  Arrows:Move  T:Talk  C:Rest  I:Inv  A:Attack  S:Spell  F:Flee  F10:Save/Load ESC:Quit ║
+╠══════════════════╦═══════════════════════════╦══════════════════════════════════╣
+║                  ║                           ║                                  ║
+║  3D First-Person ║   Area Info / Combat Log  ║         Minimap                  ║
+║      View        ║      / Dialog Panel       ║                                  ║
+║     512×420      ║          310×420          ║         202×420                  ║
+║                  ║                           ║                                  ║
+╠══════════════════╩═══════════════════════════╩══════════════════════════════════╣
+║  Tanis  Lv3  ████   Raistlin  Lv3  ██   Goldmoon  Lv3  ████   Tas  Lv3  ███   ║
+╠═══════════════════════════════════════════════════════════════════════════════════╣
+║ > The War of the Lance has begun. Takhisis stirs.                                ║
+╚═══════════════════════════════════════════════════════════════════════════════════╝
 ```
 
 ---
@@ -51,11 +51,6 @@ sudo pacman -S janet raylib ttf-dejavu
 | `raylib` | Window, renderer, input, font |
 | `dejavu` | DejaVu Mono font (UI text, optional) |
 
-raylib ships its own font renderer — there is no separate TTF library dependency.
-The game falls back to raylib's built-in bitmap font if DejaVu is not installed.
-`jpm` is only required to produce a standalone native executable; `make run` works
-without it.
-
 ---
 
 ## Building
@@ -64,74 +59,24 @@ without it.
 
 ```sh
 make clean && make native
-```
-
-Compiles `janet_raylib.c` → `src/janet_raylib.so`.
-
-Verify the export:
-
-```sh
-make symbols
-# OK: _janet_init exported
+make run
 ```
 
 ### Native executable
 
 ```sh
 make exe
+cd build && ./goldbox
 ```
-
-Uses `jpm` to compile all Janet source to bytecode and link it with the raylib
-native module into a self-contained binary.
 
 Output in `build/`:
 
 ```
 build/
 ├── goldbox           ← standalone executable
-├── janet_raylib.so   ← native module (loaded at startup via dlopen)
-└── maps/
-    ├── solace.map
-    └── xak-tsaroth.map
+├── janet_raylib.so   ← native module
+└── maps/             ← map data files
 ```
-
-To run:
-
-```sh
-cd build && ./goldbox
-```
-
-To deploy, copy the entire `build/` directory. The executable and the `.so` must
-stay in the same directory, and `maps/` must be present alongside them.
-
----
-
-## Running
-
-```sh
-make run
-```
-
-Or directly:
-
-```sh
-cd src && JANET_PATH=. janet main.janet
-```
-
----
-
-## Debugging
-
-```sh
-make debug
-```
-
-Runs `src/debug.janet` — a 41-step diagnostic that tests every subsystem in
-isolation. The last printed step number tells you exactly where a crash occurred.
-
-Steps 1–17 are pure Janet (no native module). Step 18 imports `janet_raylib`,
-step 20 opens the window, step 27 loads the font, steps 28–35 exercise every draw
-call, steps 36–37 test the event ring-buffer.
 
 ---
 
@@ -148,8 +93,10 @@ call, steps 36–37 test the event ring-buffer.
 | `T` | Talk to nearby NPC |
 | `C` | Rest (restore HP) |
 | `I` | Inventory screen |
-| `Enter` | Interact (chest, stairs) |
+| `Enter` | Interact (door, stairs, port, chest) |
 | `F1`–`F4` | Select active party member |
+| `F10` | Open Save/Load menu |
+| `ESC` | Quit game |
 
 ### Combat
 
@@ -158,6 +105,40 @@ call, steps 36–37 test the event ring-buffer.
 | `A` / `Enter` | Attack selected target |
 | `S` | Cast spell |
 | `F` | Attempt to flee |
+
+### Save/Load menu (F10)
+
+| Key | Action |
+|---|---|
+| `↑` / `↓` | Select save slot |
+| `S` | Save — prompts for a name (`a-z 0-9 - .`), then saves |
+| `L` / `Enter` | Load from selected slot |
+| `ESC` | Close menu |
+
+---
+
+## Save files
+
+Save files are stored in **`~/.goldbox_janet/`** on both FreeBSD and Linux.
+
+```
+~/.goldbox_janet/
+├── slot0.dat    ← save slot 0 (binary marshal)
+├── slot0.meta   ← save slot 0 metadata (name + timestamp, plain text)
+├── slot1.dat
+├── slot1.meta
+└── ...
+```
+
+Each `.meta` file contains two lines:
+
+```
+My Adventure
+2026-03-20 14:32
+```
+
+The folder is created automatically on first save. To back up your saves, copy
+the entire `~/.goldbox_janet/` directory.
 
 ---
 
@@ -175,25 +156,28 @@ goldbox-janet/
 │   ├── party.janet       # Characters, D&D stats, XP, levelling
 │   ├── combat.janet      # THAC0 combat, initiative, monster AI, spells
 │   ├── ui.janet          # Gold Box split-screen renderer (1024×768)
+│   ├── savegame.janet    # Save / load system (10 named slots)
 │   ├── rng.janet         # Shared RNG (d4, d6, d8, d20, rand-int)
-│   └── debug.janet       # 41-step crash diagnostic
-└── maps/
-    ├── solace.map        # Level 0 — Solace, Abanasinia
-    └── xak-tsaroth.map  # Level 1 — Ruins of Xak Tsaroth
+│   └── debug.janet       # Step-by-step crash diagnostic
+└── maps/                 # 20 map files (o_ overland, i_ interior, d_ dungeon, w_ water)
+    ├── o_solace.map
+    ├── i_inn_last_home.map
+    ├── d_xak_tsaroth.map
+    ├── w_newsea.map
+    └── ...
 ```
 
 ### Map file format
 
-Maps live in `maps/*.map` and are loaded at runtime. Each file defines the tile
-grid, NPC positions and dialog, and the player spawn point:
+Maps live in `maps/*.map` and are loaded at runtime:
 
 ```
 level 0
 spawn 4 3 north
 
 map
-################      # wall  . floor  D door  > stairs-down  < stairs-up  C chest
-#.....#........#
+################    # wall  . floor  D door  > stairs/exit
+#.....#........#    < return-exit    C chest  P port/dock
 ...
 ################
 endmap
@@ -203,6 +187,15 @@ Welcome to the Inn of the Last Home!
 endnpc
 ```
 
+Map prefix conventions:
+
+| Prefix | Type | Floor / Ceiling colours |
+|---|---|---|
+| `o_` | Overland | Dirt brown / Heaven blue |
+| `i_` | Interior / Castle | Stone gray / Brown |
+| `d_` | Dungeon | Dark brown / Dark brown |
+| `w_` | Water | Water blue / Heaven blue |
+
 ### Screen Layout (1024×768)
 
 ```
@@ -210,22 +203,6 @@ endnpc
 [3D view 512×420] [text panel 310×420] [minimap 202×420]
 [party stats bar                            1024×100]
 [message log                                1024×36 ]
-```
-
-### Game state
-
-A single mutable table threaded through all subsystems:
-
-```janet
-@{:mode        :explore      # :explore | :combat | :dialog | :inventory
-  :world       {...}         # tiles, entities, player, fog, level
-  :party       [...]         # array of character tables
-  :active-idx  0             # currently selected party member
-  :combat      {...}         # active combat state, or nil
-  :dialog-npc  {...}         # NPC being talked to, or nil
-  :messages    [...]         # scrolling message log (last 6 lines)
-  :tick        0             # frame counter
-  :running     true}         # set to false to exit the main loop
 ```
 
 ### THAC0 combat
@@ -258,31 +235,22 @@ make clean && make native
 ```
 
 **`jpm: command not found`**
-
-`jpm` is only needed for `make exe`. Install it:
 ```sh
 pkg install janet    # FreeBSD (jpm ships with janet >= 1.17)
 # Linux: build from https://github.com/janet-lang/jpm
 ```
 
-**Signal 11 (segfault) on startup**
-
-Run `make debug`. Most common causes:
-- `src/janet_raylib.so` missing — run `make native` first
-- `BeginDrawing` called outside a window — `rl/clear` must follow `rl/create-window`
-
 **Font looks pixelated**
 
-DejaVu is not installed; the game uses raylib's built-in 8×8 bitmap font.
-Install `dejavu` (FreeBSD) or `fonts-dejavu` (Debian).
+DejaVu is not installed. Install `dejavu` (FreeBSD) or `fonts-dejavu` (Debian).
 
 ---
 
 ## Setting
 
 The game is set during the **War of the Lance** on Krynn. The party begins in
-**Solace, Abanasinia** and descends into the **Ruins of Xak Tsaroth** in search
-of the Disks of Mishakal.
+**Solace, Abanasinia** and journeys across 20 locations — from Darken Wood and
+Que-Shu to the New Sea, Tarsis, Qualinesti, and the dungeons of Pax Tharkas.
 
 ### Heroes of the Lance
 
@@ -303,6 +271,8 @@ of the Disks of Mishakal.
 | Sivak Draconian | 1 | Elite shapeshifter |
 | Aurak Draconian | 2 | Most powerful draconian type |
 | Blue Dragon | −1 | End boss; lightning breath |
+| Red Dragon | 0 | Guards Pax Tharkas |
+| Sea Serpent | 3 | New Sea waters |
 
 ---
 
