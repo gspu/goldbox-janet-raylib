@@ -50,29 +50,44 @@ run: native
 #
 # Produces:  build/goldbox          (executable)
 #            build/janet_raylib.so  (native module, loaded at startup)
-#            build/maps/            (map data files)
+#            build/maps/            (map data)
 #
-# Install jpm (FreeBSD): ships with janet since 1.17 — try: which jpm
-# Install jpm (Linux):   https://github.com/janet-lang/jpm
+# jpm looks for native modules in build/ during source evaluation.
+# We pre-build both the .so (for module loading) and the .a (for
+# linking) into build/ before jpm runs so all DAG steps succeed in
+# a single pass.
+#
+# No _janet_mod_config is exported — without it Janet skips the
+# config-bits check entirely, which is safe for same-version builds.
 
-exe:
+exe: native
 	@command -v $(JPM) > /dev/null 2>&1 \
 	    || (echo "Error: jpm not found. Install with: pkg install janet"; exit 1)
-	# Build a bootstrap .so in a temp dir so jpm can load the module
-	# during Janet source evaluation without interfering with jpm's own
-	# build pipeline inside build/ (which creates .a, .static.o etc.)
-	mkdir -p .jpm-bootstrap
-	$(CC) $(CFLAGS) -o .jpm-bootstrap/$(MODULE) $(SRC) $(LDFLAGS)
-	# Remove dev .so from src/ so jpm doesn't find a stale copy there
+	mkdir -p build
+	# Pre-build .so into build/ — jpm finds it for module evaluation.
+	# Compiled normally so it exports _janet_init for dynamic loading.
+	$(CC) $(CFLAGS) -o build/$(MODULE) $(SRC) $(LDFLAGS)
+	# Pre-build .a into build/ — jpm links this into the executable.
+	# MUST be compiled with -DJANET_ENTRY_NAME=janet_module_entry_janet_raylib
+	# so the archive exports the mangled symbol that goldbox.c calls.
+	$(CC) $(CFLAGS) -DJANET_ENTRY_NAME=janet_module_entry_janet_raylib 	    -c -o build/janet_raylib.static.o $(SRC)
+	ar rcs build/janet_raylib.a build/janet_raylib.static.o
+	# Remove dev .so from src/ so jpm doesn't find a conflicting copy
 	rm -f src/$(MODULE)
-	# JANET_PATH=.jpm-bootstrap lets jpm evaluate main.janet and find
-	# the module; jpm's own build/ pipeline runs completely uninterrupted
-	JANET_PATH=.jpm-bootstrap $(JPM) build
-	rm -rf .jpm-bootstrap
-	# Rebuild dev .so so make run still works
+	# Single jpm build pass — all prerequisites are in build/
+	$(JPM) build
+	# Restore dev .so so make run still works
 	$(MAKE) native
+	# Copy map data and strip build artefacts
 	cp -r maps build/maps
 	rm -f build/*.o build/*.c build/*.meta.janet build/*.a
+	# Patch RPATH so the binary finds janet_raylib.so next to itself
+	@if command -v patchelf > /dev/null 2>&1; then \
+	    patchelf --set-rpath '$$ORIGIN' build/goldbox \
+	    && echo "RPATH set to \$$ORIGIN"; \
+	else \
+	    echo "Note: patchelf not found. Run with: cd build && env LD_LIBRARY_PATH=. ./goldbox"; \
+	fi
 	@echo ""
 	@echo "Build contents:"
 	@ls -lh build/
@@ -81,7 +96,6 @@ exe:
 	@echo "Deploy: copy the entire build/ directory."
 
 # ── Clean ─────────────────────────────────────────────────────
-# Removes everything: dev .so and the entire build/ directory.
 
 clean:
 	rm -f src/$(MODULE)
@@ -104,5 +118,5 @@ show-symbols: src/$(MODULE)
 	nm -g src/$(MODULE) | grep " T "
 
 # ── Installation notes ────────────────────────────────────────
-# FreeBSD:      pkg install janet raylib dejavu
-# Debian/Ubuntu: sudo apt install janet libraylib-dev fonts-dejavu
+# FreeBSD:      pkg install janet jpm raylib dejavu patchelf
+# Debian/Ubuntu: sudo apt install janet libraylib-dev fonts-dejavu patchelf
