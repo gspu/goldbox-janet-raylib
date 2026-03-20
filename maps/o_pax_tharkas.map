@@ -1,0 +1,38 @@
+# maps/o_pax_tharkas.map — Level 17
+
+# Tile chars: # wall  . floor  D door  > stairs-down
+# < stairs-up  C chest  P port
+
+level 17
+spawn 7 2 south
+
+map
+################
+#..............#
+#..............#
+#..............#
+#....#######...#
+#....#.....#...#
+#....#.....#...#
+#....#.D...#...#
+#....#.....#...#
+#....#.....#...#
+#....#######...#
+#......>......##
+#..............#
+#......<.......#
+#..............#
+################
+endmap
+
+npc guard "Dragon Highlord Guard" 4 5
+By order of Highlord Verminaard — halt!
+The prisoners work the mines. None pass freely.
+Dragon Highlord Verminaard commands all in Pax Tharkas.
+endnpc
+
+npc elistan "Elistan the Priest" 10 8
+I was a slave here until the heroes came.
+Verminaard holds thousands of men in bondage below.
+Ember the red dragon is his terrible mount.
+endnpc

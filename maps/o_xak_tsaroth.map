@@ -1,0 +1,38 @@
+# maps/o_xak_tsaroth.map — Level 7
+
+# Tile chars: # wall  . floor  D door  > stairs-down
+# < stairs-up  C chest  P port
+
+level 7
+spawn 7 2 south
+
+map
+################
+#..............#
+#..............#
+#...########...#
+#...#......#...#
+#...#.####.#...#
+#...#.#D.#.#...#
+#...#.####.#...#
+#...#......#...#
+#...########...#
+#..............#
+#.....#####....#
+#.....#...#....#
+#.....#.>.#....#
+#......<.......#
+################
+endmap
+
+npc drac1 "Baaz Draconian" 4 6
+Halt! The Highlord controls these ruins.
+Turn back or face the might of the Dragonarmies.
+Surrender your weapons now!
+endnpc
+
+npc voice "Voice of Mishakal" 10 11
+Brave souls — the Disks of Mishakal lie within the temple.
+Khisanth the black dragon guards the dungeon depths.
+Use the staff of blue crystal against the darkness.
+endnpc

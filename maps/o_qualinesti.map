@@ -1,0 +1,38 @@
+# maps/o_qualinesti.map — Level 10
+
+# Tile chars: # wall  . floor  D door  > stairs-down
+# < stairs-up  C chest  P port
+
+level 10
+spawn 7 7 east
+
+map
+################
+#......D.......#
+#.....###......#
+#....#...#.....#
+#...#.....#....#
+#..#.......#...#
+#.#.........#..#
+#...........#..#
+#.#.........#..#
+#..#.......#...#
+#...#.....#....#
+#....#...#.....#
+#.....###......#
+#.............>#
+#.......<......#
+################
+endmap
+
+npc porthios "Porthios" 5 3
+I am Porthios, Speaker of the Suns.
+The elven lands fall to the Dragonarmies of Takhisis.
+We must sail east across the New Sea to survive.
+endnpc
+
+npc alhana "Alhana Starbreeze" 10 9
+My father speaks for all the elves of Qualinesti.
+The Silvanesti cry out for aid across the continent.
+Will you help us find a way to stop the dragons?
+endnpc

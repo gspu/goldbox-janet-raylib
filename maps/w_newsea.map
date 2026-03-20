@@ -1,0 +1,38 @@
+# maps/w_newsea.map — Level 13
+
+# Tile chars: # wall  . floor  D door  > stairs-down
+# < stairs-up  C chest  P port
+
+level 13
+spawn 7 7 east
+
+map
+################
+#..............#
+#...###........#
+#...#.#........#
+#...###........#
+#..............#
+#..............#
+#.......P......#
+#..............#
+#..............#
+#........###...#
+#........#.#...#
+#........###...#
+#..............#
+#..............#
+################
+endmap
+
+npc sea_elf "Sea Elf" 4 3
+These waters are cursed since the Cataclysm.
+The sea elves mourn the sunken coastal cities.
+Sail south — Tarsis port lies beyond the horizon.
+endnpc
+
+npc leviathan "Sea Creature" 10 11
+Ancient things sleep beneath the waves of the New Sea.
+The Cataclysm changed everything — land, sea, and sky.
+Beware the great depths near the center.
+endnpc

@@ -1,0 +1,32 @@
+# maps/i_tarsis_library.map — Level 15
+
+# Tile chars: # wall  . floor  D door  > stairs-down
+# < stairs-up  C chest  P port
+
+level 15
+spawn 7 7 east
+
+map
+################
+#.#.#.#.#.#.#..#
+#..............#
+#.#.#.#.#.#.#..#
+#..............#
+#.#.#.#.#.#.#..#
+#..............#
+#.#.#.#.#.#.#..#
+#..............#
+#.######...#####
+#.#....#...#...#
+#.#.CC.#...#...#
+#.#....#...#...#
+#.######...#####
+#......<.......#
+################
+endmap
+
+npc astinus "Astinus of Palanthas" 7 10
+I am Astinus. I record all history as it unfolds.
+The War of the Lance is the darkest age of Krynn.
+Read here — the legend of Huma Dragonbane and the lance.
+endnpc

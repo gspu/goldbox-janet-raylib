@@ -1,0 +1,32 @@
+# maps/i_qualinesti_palace.map — Level 11
+
+# Tile chars: # wall  . floor  D door  > stairs-down
+# < stairs-up  C chest  P port
+
+level 11
+spawn 7 7 east
+
+map
+################
+#.....###......#
+#....#...#.....#
+#...#.....#....#
+#..#...C...#...#
+#.#.........#..#
+#...#######....#
+#...#.....#....#
+#...#.....#....#
+#...#.....#....#
+#...#.....#....#
+#...#######....#
+#..............#
+#..............#
+#.......<......#
+################
+endmap
+
+npc speaker "Speaker of the Suns" 7 8
+The age of elves wanes as darkness falls.
+Take the ancient paths east — flee to the New Sea.
+The port of Tarsis may still offer passage south.
+endnpc

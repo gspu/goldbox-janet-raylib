@@ -1,0 +1,32 @@
+# maps/d_xak_tsaroth.map — Level 8
+
+# Tile chars: # wall  . floor  D door  > stairs-down
+# < stairs-up  C chest  P port
+
+level 8
+spawn 7 2 south
+
+map
+################
+#..............#
+#..............#
+#.##########...#
+#.#........#...#
+#.#.######.#...#
+#.#.#....#.#...#
+#.#.#.CC.#.#...#
+#.#.#....#.#...#
+#.#.######.#...#
+#.#........#...#
+#.##########...#
+#..............#
+#..............#
+#......<.......#
+################
+endmap
+
+npc khisanth "Khisanth the Black" 8 7
+Foolish mortals dare enter my lair!
+I serve the Dark Queen Takhisis alone.
+Your lives end here in the darkness of Xak Tsaroth!
+endnpc

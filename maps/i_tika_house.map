@@ -1,0 +1,32 @@
+# maps/i_tika_house.map — Level 2
+
+# Tile chars: # wall  . floor  D door  > stairs-down
+# < stairs-up  C chest  P port
+
+level 2
+spawn 7 7 east
+
+map
+################
+#..............#
+#..###.........#
+#..#.#.........#
+#..#.#.........#
+#..###.........#
+#..............#
+#..............#
+#....###...###.#
+#....#.#...#.#.#
+#....#.#...#C#.#
+#....###...###.#
+#..............#
+#..............#
+#......<.......#
+################
+endmap
+
+npc tika2 "Tika Waylan" 5 3
+This is my private room. What do you need?
+I keep a mace behind the bar — just in case.
+The dragons destroyed so many homes in Solace.
+endnpc

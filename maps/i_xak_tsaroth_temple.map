@@ -1,0 +1,32 @@
+# maps/i_xak_tsaroth_temple.map — Level 9
+
+# Tile chars: # wall  . floor  D door  > stairs-down
+# < stairs-up  C chest  P port
+
+level 9
+spawn 7 7 east
+
+map
+################
+#.....###......#
+#.....#.#......#
+#.....#.#......#
+#.#####.#####..#
+#.#...........##
+#.#...........##
+#.#...........##
+#.#...........##
+#.##############
+#..............#
+#...#########..#
+#...#.......#..#
+#...#...C...#..#
+#.<.#########..#
+################
+endmap
+
+npc mishakal "Mishakal" 8 6
+I am Mishakal, goddess of healing and light.
+The Disks of Mishakal hold the truth of all the gods.
+Goldmoon — you carry my power. Use it with wisdom.
+endnpc

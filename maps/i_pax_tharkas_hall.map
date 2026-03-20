@@ -1,0 +1,38 @@
+# maps/i_pax_tharkas_hall.map — Level 18
+
+# Tile chars: # wall  . floor  D door  > stairs-down
+# < stairs-up  C chest  P port
+
+level 18
+spawn 7 2 south
+
+map
+################
+#..............#
+#..............#
+#..##########..#
+#..#........#..#
+#..#........#..#
+#..#..####..#..#
+#..#..#..#..#..#
+#..#..#CC#..#..#
+#..#..#..#..#..#
+#..#..####..#..#
+#..#........#..#
+#..#........#..#
+#..##########..#
+#......<.......#
+################
+endmap
+
+npc eben "Eben Shatterstone" 5 5
+I am Eben — a prisoner like you, or so I claim.
+Verminaard keeps the slaves in the lower tunnels.
+I can show you the way out... for a price.
+endnpc
+
+npc slave "Captured Refugee" 10 11
+Please — free us from this terrible place!
+Hundreds of men and women labor in the mines.
+There are children here. Help them first!
+endnpc

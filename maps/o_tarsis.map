@@ -1,0 +1,38 @@
+# maps/o_tarsis.map — Level 14
+
+# Tile chars: # wall  . floor  D door  > stairs-down
+# < stairs-up  C chest  P port
+
+level 14
+spawn 7 7 north
+
+map
+################
+#.....P........#
+#..............#
+#.D............#
+#.###.#####....#
+#.#...#...#....#
+#.#...#...#....#
+#.#####...#....#
+#..............#
+#..............#
+#..............#
+#..............#
+#.C............#
+#.......<......#
+#.............>#
+################
+endmap
+
+npc merchant "Tarsis Merchant" 5 5
+Tarsis was once a great port city on the Blood Sea.
+The Cataclysm raised the land — we are now landlocked.
+The Dragonarmies approach from the north!
+endnpc
+
+npc lord "Lord of Tarsis" 4 9
+Tarsis will not bow to the Dragon Highlords.
+I will not allow your kind to bring trouble here.
+Take your heroes and leave this city at once!
+endnpc

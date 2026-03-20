@@ -1,0 +1,38 @@
+# maps/o_darken_wood.map — Level 3
+
+# Tile chars: # wall  . floor  D door  > stairs-down
+# < stairs-up  C chest  P port
+
+level 3
+spawn 2 7 south
+
+map
+################
+#.....D........#
+#.#.#...#.#.#..#
+#..............#
+#.###.###.###..#
+#.#...#...#....#
+#.#.#.#.#.#.#..#
+#..............#
+#.###.###.###..#
+#............C.#
+#.#.#.#.#.#.#..#
+#..............#
+#.###.###.###..#
+#..............#
+#....<.......>.#
+################
+endmap
+
+npc centaur "Brave Centaur" 3 7
+These woods have been cursed since the Cataclysm.
+The Forestmaster speaks to those pure of heart.
+Follow the ancient path south to Que-Shu.
+endnpc
+
+npc woodshaper "Elven Woodshaper" 9 4
+The path to Qualinesti lies north from here.
+Our people grieve for what was lost in the Cataclysm.
+Porthios has ordered all elves to evacuate.
+endnpc

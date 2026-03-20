@@ -101,20 +101,28 @@
       (= key rl/SC_I)
         (set-mode! state :inventory)
 
-      # Interact (stairs / chest)
+      # Interact — stairs, port, chest, or any transition tile
       (= key rl/SC_RETURN)
-        (let [t (world/tile-at tiles (player :x) (player :y))]
+        (let [t    (world/tile-at tiles (player :x) (player :y))
+              dest (world/get-connection (w :level) t)]
           (cond
-            (= t 4)
-              (do
-                (world/descend! w)
+            dest
+              (let [level-names
+                    {0  "Solace" 1  "the Inn of the Last Home"
+                     2  "Tika's room" 3  "Darken Wood"
+                     4  "Que-Shu" 5  "the Chieftain's Hut"
+                     6  "the Crystal Cave" 7  "Xak Tsaroth"
+                     8  "the depths of Xak Tsaroth" 9  "Mishakal's Temple"
+                     10 "Qualinesti" 11 "the Speaker's Palace"
+                     12 "the Sea of Blood Coast" 13 "the New Sea"
+                     14 "Tarsis" 15 "the Library of Tarsis"
+                     16 "the Ergoth Coast" 17 "Pax Tharkas"
+                     18 "the Great Hall of Pax Tharkas"
+                     19 "the Dungeons of Pax Tharkas"}
+                    dest-name (or (level-names dest) (string "level " dest))]
+                (world/travel! w dest)
                 (world/reveal-fog! w)
-                (msg! state "You descend into Xak Tsaroth."))
-            (= t 5)
-              (do
-                (world/ascend! w)
-                (world/reveal-fog! w)
-                (msg! state "You climb back to Solace."))
+                (msg! state (string "You travel to " dest-name ".")))
             (= t 6)
               (do
                 (world/set-tile! tiles (player :x) (player :y) 0)

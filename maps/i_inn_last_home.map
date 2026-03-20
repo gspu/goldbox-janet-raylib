@@ -1,0 +1,38 @@
+# maps/i_inn_last_home.map — Level 1
+
+# Tile chars: # wall  . floor  D door  > stairs-down
+# < stairs-up  C chest  P port
+
+level 1
+spawn 2 2 south
+
+map
+################
+#<.............#
+#..............#
+#.####...####..#
+#.#..#...#..#..#
+#.#..#...#..#..#
+#.####...####..#
+#..............#
+#.....######...#
+#.....#....#...#
+#.....#....#...#
+#.....#.C..#...#
+#.....######...#
+#..............#
+#............D.#
+################
+endmap
+
+npc tika "Tika Waylan" 7 9
+Gilthanas brought news of draconians near Solace.
+My father built this inn with his own hands.
+Be careful out there, friend.
+endnpc
+
+npc caramon "Caramon Majere" 3 5
+Raistlin is resting — do not disturb him.
+I can carry anything, or anyone.
+Stay and have some ale.
+endnpc

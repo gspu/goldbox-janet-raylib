@@ -1,0 +1,32 @@
+# maps/i_chieftain_hut.map — Level 5
+
+# Tile chars: # wall  . floor  D door  > stairs-down
+# < stairs-up  C chest  P port
+
+level 5
+spawn 7 7 east
+
+map
+################
+#..............#
+#..............#
+#...#######....#
+#...#.....#....#
+#...#.....#....#
+#...#..C..#....#
+#...#.....#....#
+#...#.....#....#
+#...#######....#
+#..............#
+#..............#
+#..............#
+#..............#
+#......<.......#
+################
+endmap
+
+npc elder "Elder Shaman" 7 6
+The crystal cave holds the power of the ancient gods.
+Only the pure of heart may wield its gifts.
+Beware the guardians within the cave.
+endnpc

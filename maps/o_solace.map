@@ -1,0 +1,38 @@
+# maps/o_solace.map — Level 0
+
+# Tile chars: # wall  . floor  D door  > stairs-down
+# < stairs-up  C chest  P port
+
+level 0
+spawn 2 2 north
+
+map
+################
+#..............#
+#..............#
+#.......D......#
+#....######....#
+#....#....#....#
+#....#.C..#....#
+#....######....#
+#..............#
+#..............#
+#..............#
+#..............#
+#..............#
+#..............#
+#.............>#
+################
+endmap
+
+npc otik "Otik" 9 3
+Welcome to the Inn of the Last Home!
+The Dragonarmies march from the east.
+Strange blue-staffed clerics passed through yesterday.
+endnpc
+
+npc gilthanas "Gilthanas" 10 9
+The elves of Qualinesti flee south.
+I know a hidden path through Darken Wood.
+The Disks of Mishakal must be found.
+endnpc

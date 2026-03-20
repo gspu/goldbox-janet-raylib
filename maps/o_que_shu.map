@@ -1,0 +1,38 @@
+# maps/o_que_shu.map — Level 4
+
+# Tile chars: # wall  . floor  D door  > stairs-down
+# < stairs-up  C chest  P port
+
+level 4
+spawn 7 2 south
+
+map
+################
+#.....P........#
+#..............#
+#....####..##..#
+#....#..#..##..#
+#....#D.#......#
+#....####......#
+#..............#
+#....####..##..#
+#....#..#..##..#
+#....####..##..#
+#..............#
+#.C............#
+#..............#
+#....<.......>.#
+################
+endmap
+
+npc riverwind "Riverwind" 9 3
+I am Riverwind of the Que-Shu tribe.
+Goldmoon bears the blue crystal staff of Mishakal.
+The gods have not forsaken us — Mishakal answers.
+endnpc
+
+npc chieftain "Chieftain Arrowthorn" 4 9
+You seek the ancient ruins to the east.
+Many warriors have gone there and not returned.
+The dragon Khisanth guards those terrible depths.
+endnpc

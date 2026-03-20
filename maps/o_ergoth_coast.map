@@ -1,0 +1,32 @@
+# maps/o_ergoth_coast.map — Level 16
+
+# Tile chars: # wall  . floor  D door  > stairs-down
+# < stairs-up  C chest  P port
+
+level 16
+spawn 7 6 east
+
+map
+################
+#..............#
+#.####.........#
+#.#..#.........#
+#.#..#.........#
+#.####.........#
+#..............#
+#......P.......#
+#..............#
+#.######.......#
+#.#....#.......#
+#.#.CC.#.......#
+#.#....#.......#
+#.######.......#
+#..............#
+################
+endmap
+
+npc ghost "Ghost of Old Ergoth" 4 3
+We drowned when the Cataclysm struck ancient Ergoth.
+Our kingdom lies beneath these cursed waves.
+Turn back — there is nothing for the living here.
+endnpc

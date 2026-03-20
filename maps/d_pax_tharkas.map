@@ -1,0 +1,38 @@
+# maps/d_pax_tharkas.map — Level 19
+
+# Tile chars: # wall  . floor  D door  > stairs-down
+# < stairs-up  C chest  P port
+
+level 19
+spawn 7 2 south
+
+map
+################
+#..............#
+#..............#
+#.##########...#
+#.#........#...#
+#.#.######.#...#
+#.#.#....#.#...#
+#.#.#.CC.#.#...#
+#.#.#....#.#...#
+#.#.######.#...#
+#.#........#...#
+#.##########...#
+#..............#
+#..............#
+#......<.......#
+################
+endmap
+
+npc verminaard "Dragon Highlord Verminaard" 7 7
+I am Verminaard, chosen of the Dark Queen Takhisis!
+Ember will reduce you all to cinders and ash!
+Your pathetic resistance ends in these depths!
+endnpc
+
+npc ember "Ember the Red Dragon" 10 6
+ROOAAARR! The great Ember serves Verminaard alone!
+Your flesh will feed my eternal fire!
+No hero of the lance escapes these depths alive!
+endnpc

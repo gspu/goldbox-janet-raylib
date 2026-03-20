@@ -1,0 +1,32 @@
+# maps/d_crystal_cave.map — Level 6
+
+# Tile chars: # wall  . floor  D door  > stairs-down
+# < stairs-up  C chest  P port
+
+level 6
+spawn 7 11 south
+
+map
+################
+#.....#........#
+#.###.#.###....#
+#.#...#...#....#
+#.#.#####.#....#
+#.#.#.C.#.#....#
+#.#.#...#.#....#
+#...#####.#....#
+#.########.....#
+#..........#...#
+#.##########...#
+#.#............#
+#.#.############
+#.#............#
+#.<............#
+################
+endmap
+
+npc guardian "Crystal Guardian" 7 5
+Who seeks the gift of Mishakal?
+Only compassion can unlock this sacred power.
+The blue crystal staff awaits the chosen healer.
+endnpc

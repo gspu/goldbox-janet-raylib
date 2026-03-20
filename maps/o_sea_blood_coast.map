@@ -1,0 +1,32 @@
+# maps/o_sea_blood_coast.map — Level 12
+
+# Tile chars: # wall  . floor  D door  > stairs-down
+# < stairs-up  C chest  P port
+
+level 12
+spawn 2 1 east
+
+map
+################
+#..............#
+#..............#
+#.########.....#
+#.#......#.....#
+#.#..C...#.....#
+#.#......#.....#
+#.########.....#
+#..............#
+#..............#
+#..............#
+#............P.#
+#..............#
+#............>.#
+#.......<......#
+################
+endmap
+
+npc sailor "Sea Captain" 5 4
+The New Sea was created by the Cataclysm three centuries ago.
+We can sail south from here to reach Tarsis.
+Strange creatures have been seen beneath these dark waters.
+endnpc
