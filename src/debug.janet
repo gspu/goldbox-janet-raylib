@@ -7,11 +7,6 @@
 # subsystem failed.  Each step tests a progressively larger slice
 # of the engine.
 #
-# SDL2 → raylib migration:
-#   * Steps 1-6 are pure-Janet and unchanged.
-#   * Steps 7-18 previously tested SDL2 calls; they now test the
-#     equivalent raylib calls via janet_raylib.so.
-
 (print "=== Gold Box Engine — raylib diagnostic ===")
 (print)
 
@@ -51,20 +46,13 @@
 
 # ── Step 5: raylib native module ──────────────────────────────
 (print "[18] Importing janet_raylib native module...")
-(import ./janet_raylib :as rl)
+(import janet_raylib :as rl)
 (print "[19] janet_raylib imported. SC_UP=" rl/SC_UP " SC_RETURN=" rl/SC_RETURN)
 
 # ── Step 6: Window & renderer ─────────────────────────────────
-(print "[20] Calling rl/init...")
-(rl/init)
-(print "[21] rl/init OK")
-
-(print "[22] Creating window (headless — window will open briefly)...")
-(def win (rl/create-window "Debug Test" 320 240))
-(print "[23] Window handle = " win)
-
-(def ren (rl/create-renderer win))
-(print "[24] Renderer handle = " ren)
+(print "[22] Opening window...")
+(rl/open-window "Debug Test" 320 240)
+(print "[23] Window opened OK")
 
 # ── Step 7: Font loading ──────────────────────────────────────
 (def FONT-PATHS
@@ -87,28 +75,28 @@
 # ── Step 8: Draw calls ────────────────────────────────────────
 (print "[28] Testing draw calls...")
 
-(rl/set-color ren 20 20 20 255)
-(rl/clear ren)
+(rl/set-color 20 20 20 255)
+(rl/clear)
 (print "[29] rl/clear OK")
 
-(rl/set-color ren 200 170 50 255)
-(rl/fill-rect ren 10 10 100 50)
+(rl/set-color 200 170 50 255)
+(rl/fill-rect 10 10 100 50)
 (print "[30] rl/fill-rect OK")
 
-(rl/set-color ren 255 255 255 255)
-(rl/draw-rect ren 10 10 100 50)
+(rl/set-color 255 255 255 255)
+(rl/draw-rect 10 10 100 50)
 (print "[31] rl/draw-rect OK")
 
-(rl/set-color ren 60 200 200 255)
-(rl/draw-line ren 0 0 100 100)
+(rl/set-color 60 200 200 255)
+(rl/draw-line 0 0 100 100)
 (print "[32] rl/draw-line OK")
 
-(rl/draw-text ren font "Debug OK" 10 70 255 255 255 255)
+(rl/draw-text font "Debug OK" 10 70 255 255 255 255)
 (print "[33] rl/draw-text OK")
 
 # ── Step 9: Present / ticks ───────────────────────────────────
 (print "[34] Calling rl/present...")
-(rl/present ren)
+(rl/present)
 (print "[35] rl/present OK. ticks=" (rl/ticks))
 
 # ── Step 10: Event poll (just drain immediately) ──────────────
@@ -124,11 +112,10 @@
 (print "[38] Closing font...")
 (rl/close-font font)
 (print "[39] Destroying renderer...")
-(rl/destroy-renderer ren)
 (print "[40] Destroying window...")
-(rl/destroy-window win)
-(print "[41] Calling rl/quit...")
-(rl/quit)
+(rl/close-window)
+(print "[39] Closing window...")
+(rl/close-window)
 
 (print)
 (print "=== All 41 steps passed — raylib backend is functional ===")

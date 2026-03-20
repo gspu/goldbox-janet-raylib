@@ -12,10 +12,6 @@
 # │  Message log                                    1024×36     │
 # └─────────────────────────────────────────────────────────────┘
 #
-# The only change from the SDL2 version:
-#   (import ./janet_sdl2 :as sdl)  →  (import janet_raylib :as rl)
-# All rl/* calls are identical to the old sdl/* calls.
-
 (import janet_raylib :as rl)
 (import ./world)
 (import ./party)
@@ -45,7 +41,6 @@
 
 # ── Colour palette ───────────────────────────────────────────
 
-(def COL-BLACK    [  0   0   0 255])
 (def COL-DARK     [ 20  20  20 255])
 (def COL-STONE    [ 70  60  50 255])
 (def COL-FLOOR    [ 40  35  30 255])
@@ -57,7 +52,6 @@
 (def COL-GREEN    [ 60 160  60 255])
 (def COL-RED      [200  50  50 255])
 (def COL-YELLOW   [220 200  60 255])
-(def COL-BLUE     [ 60 100 200 255])
 (def COL-CYAN     [ 60 200 200 255])
 (def COL-PANEL-BG [ 10  10  20 255])
 
@@ -72,36 +66,36 @@
 
 # ── Draw helpers ─────────────────────────────────────────────
 
-(defn- set-col [ren [r g b a]]
-  (rl/set-color ren r g b a))
+(defn- set-col [[r g b a]]
+  (rl/set-color r g b a))
 
-(defn- fill [ren x y w h col]
-  (set-col ren col)
-  (rl/fill-rect ren x y w h))
+(defn- fill [x y w h col]
+  (set-col col)
+  (rl/fill-rect x y w h))
 
-(defn- outline [ren x y w h col]
-  (set-col ren col)
-  (rl/draw-rect ren x y w h))
+(defn- outline [x y w h col]
+  (set-col col)
+  (rl/draw-rect x y w h))
 
-(defn- line [ren x1 y1 x2 y2 col]
-  (set-col ren col)
-  (rl/draw-line ren x1 y1 x2 y2))
+(defn- line [x1 y1 x2 y2 col]
+  (set-col col)
+  (rl/draw-line x1 y1 x2 y2))
 
-(defn- text [ren font str x y col]
+(defn- text [font str x y col]
   (let [[r g b a] col]
-    (rl/draw-text ren font str x y r g b a)))
+    (rl/draw-text font str x y r g b a)))
 
 # ── HP bar helper ────────────────────────────────────────────
 
-(defn- draw-hp-bar [ren x y w h cur mx]
-  (fill ren x y w h COL-DARK)
+(defn- draw-hp-bar [x y w h cur mx]
+  (fill x y w h COL-DARK)
   (when (pos? mx)
     (let [frac (/ cur mx)
           col  (cond (> frac 0.5) COL-GREEN
                      (> frac 0.25) COL-YELLOW
                      COL-RED)]
-      (fill ren x y (math/floor (* w frac)) h col)))
-  (outline ren x y w h COL-GRAY))
+      (fill x y (math/floor (* w frac)) h col)))
+  (outline x y w h COL-GRAY))
 
 # ── 3-D first-person view — DDA raycaster ────────────────────
 #
@@ -182,14 +176,14 @@
 
 # ── Compass rose ─────────────────────────────────────────────
 
-(defn- draw-compass [ren font dir]
+(defn- draw-compass [font dir]
   "Draw N/S/E/W compass in the top-right corner of the 3D view."
   (let [cx   (- (+ VIEW-X VIEW-W) 36)   # centre x
         cy   (+ PANEL-Y 36)             # centre y
         r    24                         # outer radius
         # Background circle
-        _    (fill ren (- cx r) (- cy r) (* 2 r) (* 2 r) [0 0 0 160])
-        _    (outline ren (- cx r) (- cy r) (* 2 r) (* 2 r) COL-SEP)
+        _    (fill (- cx r) (- cy r) (* 2 r) (* 2 r) [0 0 0 160])
+        _    (outline (- cx r) (- cy r) (* 2 r) (* 2 r) COL-SEP)
         # Cardinal directions — highlight the one we face
         dirs {:north ["N"  cx          (- cy r -4)  0 -1]
               :south ["S"  cx          (+ cy r -10) 0  1]
@@ -201,10 +195,10 @@
             # Tick line from centre toward the cardinal point
             lx2    (+ cx (math/floor (* nx (- r 8))))
             ly2    (+ cy (math/floor (* ny (- r 8))))]
-        (line ren cx cy lx2 ly2 (if active COL-CYAN [60 60 60 255]))
-        (text ren font lbl tx ty col)))))
+        (line cx cy lx2 ly2 (if active COL-CYAN [60 60 60 255]))
+        (text font lbl tx ty col)))))
 
-(defn draw-3d-view [ren font tiles player level]
+(defn draw-3d-view [font tiles player level]
   # Ceiling and floor — colour by map type prefix (d_ i_ o_ w_)
   (let [level-names {0 "o" 1 "i" 2 "i" 3 "o" 4 "o" 5 "i" 6 "d" 7 "o"
                      8 "d" 9 "i" 10 "o" 11 "i" 12 "o" 13 "w" 14 "o" 15 "i"
@@ -213,8 +207,8 @@
         env         (or (ENV-COLORS prefix) (ENV-COLORS :o))
         col-ceil    (env 0)
         col-floor   (env 1)]
-    (fill ren VIEW-X PANEL-Y VIEW-W (math/floor (/ PANEL-H 2)) col-ceil)
-    (fill ren VIEW-X (+ PANEL-Y (math/floor (/ PANEL-H 2)))
+    (fill VIEW-X PANEL-Y VIEW-W (math/floor (/ PANEL-H 2)) col-ceil)
+    (fill VIEW-X (+ PANEL-Y (math/floor (/ PANEL-H 2)))
               VIEW-W (math/ceil  (/ PANEL-H 2)) col-floor))
 
   (let [# Map Y increases downward (row 0 = top of map).
@@ -256,32 +250,32 @@
                 draw-bottom (min PANEL-H (+ top wall-h))
                 draw-h      (- draw-bottom draw-top)]
             (when (> draw-h 0)
-              (set-col ren col-shade)
-              (rl/fill-rect ren (+ VIEW-X screen-x) (+ PANEL-Y draw-top) 1 draw-h))))))
+              (set-col col-shade)
+              (rl/fill-rect (+ VIEW-X screen-x) (+ PANEL-Y draw-top) 1 draw-h))))))
 
   # Compass overlay — drawn after walls so it's always on top
-  (draw-compass ren font (player :dir))))
+  (draw-compass font (player :dir))))
 
 # ── Text / combat panel ───────────────────────────────────────
 
-(defn draw-text-panel [ren font lines title]
-  (fill ren TEXT-X PANEL-Y TEXT-W PANEL-H COL-PANEL-BG)
-  (outline ren TEXT-X PANEL-Y TEXT-W PANEL-H COL-SEP)
-  (text ren font title (+ TEXT-X 8) (+ PANEL-Y 6) COL-GOLD)
-  (line ren TEXT-X (+ PANEL-Y 22) (+ TEXT-X TEXT-W) (+ PANEL-Y 22) COL-SEP)
+(defn draw-text-panel [font lines title]
+  (fill TEXT-X PANEL-Y TEXT-W PANEL-H COL-PANEL-BG)
+  (outline TEXT-X PANEL-Y TEXT-W PANEL-H COL-SEP)
+  (text font title (+ TEXT-X 8) (+ PANEL-Y 6) COL-GOLD)
+  (line TEXT-X (+ PANEL-Y 22) (+ TEXT-X TEXT-W) (+ PANEL-Y 22) COL-SEP)
   (var ly (+ PANEL-Y 30))
   (each ln lines
-    (text ren font ln (+ TEXT-X 8) ly COL-WHITE)
+    (text font ln (+ TEXT-X 8) ly COL-WHITE)
     (set ly (+ ly 18))))
 
 # ── Minimap ───────────────────────────────────────────────────
 
 (def MINI-CELL 12)    # pixels per map cell
 
-(defn draw-minimap [ren font tiles fog player]
-  (fill ren MINI-X PANEL-Y MINI-W PANEL-H COL-DARK)
-  (outline ren MINI-X PANEL-Y MINI-W PANEL-H COL-SEP)
-  (text ren font "MAP" (+ MINI-X 8) (+ PANEL-Y 6) COL-GOLD)
+(defn draw-minimap [font tiles fog player]
+  (fill MINI-X PANEL-Y MINI-W PANEL-H COL-DARK)
+  (outline MINI-X PANEL-Y MINI-W PANEL-H COL-SEP)
+  (text font "MAP" (+ MINI-X 8) (+ PANEL-Y 6) COL-GOLD)
   (let [off-x (+ MINI-X 5)
         off-y (+ PANEL-Y 22)]
     (for y 0 world/MAP-H
@@ -290,35 +284,34 @@
               fogged (fog idx)
               tile (if fogged 255 (world/tile-at tiles x y))
               col  (cond
-                     fogged                          COL-BLACK
+                     fogged                          [0 0 0 255]
                      (= tile 1)                      COL-WALL
                      (or (= tile 2) (= tile 3))      COL-DOOR
                      (or (= tile 4) (= tile 5))      COL-GOLD
                      (= tile 6)                      COL-YELLOW
                      COL-FLOOR)]
-          (fill ren
-                (+ off-x (* x MINI-CELL))
+          (fill (+ off-x (* x MINI-CELL))
                 (+ off-y (* y MINI-CELL))
                 (- MINI-CELL 1) (- MINI-CELL 1)
                 col))))
     # Player arrow
     (let [px (+ off-x (* (player :x) MINI-CELL) (/ MINI-CELL 2))
           py (+ off-y (* (player :y) MINI-CELL) (/ MINI-CELL 2))]
-      (fill ren (- px 3) (- py 3) 6 6 COL-CYAN))))
+      (fill (- px 3) (- py 3) 6 6 COL-CYAN))))
 
 # ── Title bar ─────────────────────────────────────────────────
 
-(defn draw-title [ren font mode level]
-  (fill ren 0 TITLE-Y WIN-W TITLE-H COL-DARK)
-  (outline ren 0 TITLE-Y WIN-W TITLE-H COL-SEP)
+(defn draw-title [font mode level]
+  (fill 0 TITLE-Y WIN-W TITLE-H COL-DARK)
+  (outline 0 TITLE-Y WIN-W TITLE-H COL-SEP)
   (let [hints "Arrows:Move  T:Talk  C:Rest  I:Inv  A:Attack  S:Spell  F:Flee  F10:Save/Load  ESC:Quit"]
-    (text ren font hints 8 8 COL-GRAY)))
+    (text font hints 8 8 COL-GRAY)))
 
 # ── Party stats bar ───────────────────────────────────────────
 
-(defn draw-party-bar [ren font party active-idx]
-  (fill ren 0 STATS-Y WIN-W STATS-H COL-DARK)
-  (outline ren 0 STATS-Y WIN-W STATS-H COL-SEP)
+(defn draw-party-bar [font party active-idx]
+  (fill 0 STATS-Y WIN-W STATS-H COL-DARK)
+  (outline 0 STATS-Y WIN-W STATS-H COL-SEP)
   (let [slot-w (/ WIN-W (length party))]
     (eachp [idx ch] party
       (let [x     (math/floor (* idx slot-w))
@@ -327,46 +320,46 @@
                             (= idx active-idx) COL-CYAN
                             COL-WHITE)]
         (when (= idx active-idx)
-          (fill ren x STATS-Y (math/floor slot-w) STATS-H [30 30 60 255]))
-        (text ren font (ch :name) (+ x 8) (+ STATS-Y 6) name-col)
-        (text ren font (string "Lv" (ch :level) "  HP:" (ch :hp) "/" (ch :hp-max))
+          (fill x STATS-Y (math/floor slot-w) STATS-H [30 30 60 255]))
+        (text font (ch :name) (+ x 8) (+ STATS-Y 6) name-col)
+        (text font (string "Lv" (ch :level) "  HP:" (ch :hp) "/" (ch :hp-max))
               (+ x 8) (+ STATS-Y 22) COL-GRAY)
-        (draw-hp-bar ren (+ x 8) (+ STATS-Y 42) (- (math/floor slot-w) 16) 12
+        (draw-hp-bar (+ x 8) (+ STATS-Y 42) (- (math/floor slot-w) 16) 12
                      (ch :hp) (ch :hp-max))
         (when (not alive)
-          (text ren font "DEAD" (+ x 8) (+ STATS-Y 58) COL-RED))))))
+          (text font "DEAD" (+ x 8) (+ STATS-Y 58) COL-RED))))))
 
 # ── Message log bar ───────────────────────────────────────────
 
-(defn draw-messages [ren font messages]
-  (fill ren 0 MSG-Y WIN-W MSG-H COL-DARK)
-  (outline ren 0 MSG-Y WIN-W MSG-H COL-SEP)
+(defn draw-messages [font messages]
+  (fill 0 MSG-Y WIN-W MSG-H COL-DARK)
+  (outline 0 MSG-Y WIN-W MSG-H COL-SEP)
   (when (pos? (length messages))
-    (text ren font (string "> " (last messages)) 8 (+ MSG-Y 10) COL-GRAY)))
+    (text font (string "> " (last messages)) 8 (+ MSG-Y 10) COL-GRAY)))
 
 # ── Inventory overlay ─────────────────────────────────────────
 
-(defn draw-inventory [ren font party active-idx]
-  (fill ren 100 100 824 568 COL-DARK)
-  (outline ren 100 100 824 568 COL-GOLD)
-  (text ren font "INVENTORY" 120 116 COL-GOLD)
+(defn draw-inventory [font party active-idx]
+  (fill 100 100 824 568 COL-DARK)
+  (outline 100 100 824 568 COL-GOLD)
+  (text font "INVENTORY" 120 116 COL-GOLD)
   (let [ch (party active-idx)]
-    (text ren font (string (ch :name) " the " (ch :class)) 120 146 COL-WHITE)
-    (text ren font (string "STR:" (ch :str) "  DEX:" (ch :dex) "  CON:" (ch :con)
+    (text font (string (ch :name) " the " (ch :class)) 120 146 COL-WHITE)
+    (text font (string "STR:" (ch :str) "  DEX:" (ch :dex) "  CON:" (ch :con)
                             "  INT:" (ch :int) "  WIS:" (ch :wis) "  CHA:" (ch :cha))
           120 172 COL-GRAY)
-    (text ren font (string "THAC0:" (ch :thac0) "  AC:" (ch :ac)
+    (text font (string "THAC0:" (ch :thac0) "  AC:" (ch :ac)
                             "  XP:" (ch :xp) "  Level:" (ch :level))
           120 196 COL-GRAY)
     (when (pos? (length (ch :spells)))
-      (text ren font "SPELLS:" 120 228 COL-CYAN)
+      (text font "SPELLS:" 120 228 COL-CYAN)
       (eachp [idx sp] (ch :spells)
-        (text ren font (string "  " sp) 120 (+ 250 (* idx 18)) COL-WHITE))))
-  (text ren font "Press I to close" 120 620 COL-GRAY))
+        (text font (string "  " sp) 120 (+ 250 (* idx 18)) COL-WHITE))))
+  (text font "Press I to close" 120 620 COL-GRAY))
 
 # ── Save / Load menu overlay ──────────────────────────────────
 
-(defn draw-savemenu [ren font state]
+(defn draw-savemenu [font state]
   "Draw the 10-slot save/load overlay covering the full screen height."
   (let [bx   80    # box x
         by   60    # box y — high enough to cover everything incl. party bar
@@ -377,23 +370,23 @@
         name-buf (or (state :save-name-buf) "")]
 
     # Dark semi-transparent backdrop over entire screen
-    (fill ren 0 0 WIN-W WIN-H [0 0 0 180])
+    (fill 0 0 WIN-W WIN-H [0 0 0 180])
 
     # Panel
-    (fill    ren bx by bw bh COL-DARK)
-    (outline ren bx by bw bh COL-GOLD)
+    (fill    bx by bw bh COL-DARK)
+    (outline bx by bw bh COL-GOLD)
 
     # Title
-    (text ren font "SAVE / LOAD GAME" (+ bx 300) (+ by 12) COL-GOLD)
-    (line ren bx (+ by 34) (+ bx bw) (+ by 34) COL-SEP)
+    (text font "SAVE / LOAD GAME" (+ bx 300) (+ by 12) COL-GOLD)
+    (line bx (+ by 34) (+ bx bw) (+ by 34) COL-SEP)
 
     # Instructions
     (if naming
       (do
-        (text ren font "Enter save name  a-z 0-9 - .  (Enter confirm, ESC cancel):"
+        (text font "Enter save name  a-z 0-9 - .  (Enter confirm, ESC cancel):"
               (+ bx 16) (+ by 42) COL-YELLOW)
-        (text ren font (string "> " name-buf "_") (+ bx 16) (+ by 60) COL-WHITE))
-      (text ren font
+        (text font (string "> " name-buf "_") (+ bx 16) (+ by 60) COL-WHITE))
+      (text font
             "S:Save  L:Load  DEL:Delete  ↑↓:Select slot  ESC:Close"
             (+ bx 16) (+ by 42) COL-GRAY))
 
@@ -404,14 +397,14 @@
             selected (= i act)
             bg-col  (if selected [40 40 80 255] [15 15 30 255])
             txt-col (if selected COL-CYAN COL-WHITE)]
-        (fill    ren (+ bx 16) sy (- bw 32) 50 bg-col)
-        (outline ren (+ bx 16) sy (- bw 32) 50
+        (fill    (+ bx 16) sy (- bw 32) 50 bg-col)
+        (outline (+ bx 16) sy (- bw 32) 50
                  (if selected COL-CYAN COL-SEP))
-        (text ren font info (+ bx 28) (+ sy 16) txt-col)))))
+        (text font info (+ bx 28) (+ sy 16) txt-col)))))
 
 # ── Full-frame render ─────────────────────────────────────────
 
-(defn render-frame [ren font state]
+(defn render-frame [font state]
   (let [mode    (state :mode)
         w       (state :world)
         par     (state :party)
@@ -423,38 +416,38 @@
         level   (w :level)]
 
     # Clear
-    (rl/set-color ren 0 0 0 255)
-    (rl/clear ren)
+    (rl/set-color 0 0 0 255)
+    (rl/clear)
 
     # Panels
-    (draw-title ren font mode level)
+    (draw-title font mode level)
 
     (case mode
       :combat
         (let [cs       (state :combat)
               log-lines (combat/combat-log cs)
               monsters  (combat/living-monsters cs)]
-          (draw-3d-view ren font tiles player level)
-          (draw-text-panel ren font log-lines "COMBAT")
-          (draw-minimap ren font tiles fog player))
+          (draw-3d-view font tiles player level)
+          (draw-text-panel font log-lines "COMBAT")
+          (draw-minimap font tiles fog player))
 
       :dialog
         (let [npc  (state :dialog-npc)
               dlg  (npc :dialog)]
-          (draw-3d-view ren font tiles player level)
-          (draw-text-panel ren font dlg (string (npc :name) " says:"))
-          (draw-minimap ren font tiles fog player))
+          (draw-3d-view font tiles player level)
+          (draw-text-panel font dlg (string (npc :name) " says:"))
+          (draw-minimap font tiles fog player))
 
       :inventory
         (do
-          (draw-3d-view ren font tiles player level)
-          (draw-text-panel ren font [] "INVENTORY")
-          (draw-minimap ren font tiles fog player)
-          (draw-inventory ren font par act-idx))
+          (draw-3d-view font tiles player level)
+          (draw-text-panel font [] "INVENTORY")
+          (draw-minimap font tiles fog player)
+          (draw-inventory font par act-idx))
 
       # :explore and default
       (do
-        (draw-3d-view ren font tiles player level)
+        (draw-3d-view font tiles player level)
         (let [level-display
               {0  "Solace, Abanasinia"      1  "Inn of the Last Home"
                2  "Tika's Room"             3  "Darken Wood"
@@ -473,14 +466,14 @@
               area-lines [(string "Location: " loc-name)
                           (string "Facing:   " dir-name)
                           (string "Position: " (player :x) ", " (player :y))]]
-          (draw-text-panel ren font area-lines "AREA INFO"))
-        (draw-minimap ren font tiles fog player)))
+          (draw-text-panel font area-lines "AREA INFO"))
+        (draw-minimap font tiles fog player)))
 
-    (draw-party-bar ren font par act-idx)
-    (draw-messages  ren font msgs)
+    (draw-party-bar font par act-idx)
+    (draw-messages font msgs)
 
     # Save/Load overlay — drawn last so it covers everything
     (when (= mode :savemenu)
-      (draw-savemenu ren font state))
+      (draw-savemenu font state))
 
-    (rl/present ren)))
+    (rl/present)))
