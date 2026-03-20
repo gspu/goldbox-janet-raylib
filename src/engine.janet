@@ -101,13 +101,27 @@
       (= key rl/SC_I)
         (set-mode! state :inventory)
 
-      # Interact — stairs, port, chest, or any transition tile
+      # Interact — stairs, port, chest, or any transition tile.
+      # Check the player's current tile first; if no connection found,
+      # also check the tile they are facing (for doors that swung open
+      # and became tile 3, or for stepping up to a door/stair).
       (= key rl/SC_RETURN)
-        (let [t    (world/tile-at tiles (player :x) (player :y))
-              dest (world/get-connection (w :level) t)]
+        (let [t     (world/tile-at tiles (player :x) (player :y))
+              # also check open-door tile (3) -> map to connection key 2
+              t-key (if (= t 3) 2 t)
+              [fdx fdy] (world/facing-delta (player :dir))
+              fx    (+ (player :x) fdx)
+              fy    (+ (player :y) fdy)
+              ft    (if (and (>= fx 0) (< fx world/MAP-W)
+                             (>= fy 0) (< fy world/MAP-H))
+                      (world/tile-at tiles fx fy) 0)
+              ft-key (if (= ft 3) 2 ft)
+              dest  (or (world/get-connection (w :level) t-key)
+                        (world/get-connection (w :level) ft-key))]
           (cond
             dest
-              (let [level-names
+              (let [[dest-level arr-x arr-y arr-dir] dest
+                    level-names
                     {0  "Solace" 1  "the Inn of the Last Home"
                      2  "Tika's room" 3  "Darken Wood"
                      4  "Que-Shu" 5  "the Chieftain's Hut"
@@ -119,8 +133,8 @@
                      16 "the Ergoth Coast" 17 "Pax Tharkas"
                      18 "the Great Hall of Pax Tharkas"
                      19 "the Dungeons of Pax Tharkas"}
-                    dest-name (or (level-names dest) (string "level " dest))]
-                (world/travel! w dest)
+                    dest-name (or (level-names dest-level) (string "level " dest-level))]
+                (world/travel! w dest-level arr-x arr-y arr-dir)
                 (world/reveal-fog! w)
                 (msg! state (string "You travel to " dest-name ".")))
             (= t 6)

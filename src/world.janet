@@ -62,30 +62,35 @@
 #                                                          |>
 #                                                     d_pax_tharkas(19)
 
+# CONNECTIONS format: {from-level {tile-code [dest-level arr-x arr-y arr-dir]}}
+# Arrival is ON the return-exit tile in the destination map, facing into the map.
+
 (def CONNECTIONS
-  {0  {4 3  2 1}            # o_solace       -> darken_wood(>) inn(D)
-   1  {5 0  2 2}            # i_inn          -> solace(<) tika(D)
-   2  {5 1}                 # i_tika         -> inn(<)
-   3  {5 0  4 4  2 10}      # o_darken_wood  -> solace(<) que_shu(>) qualinesti(D)
-   4  {5 3  4 7  2 5  7 6}  # o_que_shu      -> darken_wood(<) xak_area(>) chieftain(D) crystal(P)
-   5  {5 4}                 # i_chieftain    -> que_shu(<)
-   6  {5 4}                 # d_crystal_cave -> que_shu(<)
-   7  {5 4  4 8  2 9}       # o_xak_tsaroth  -> que_shu(<) dungeon(>) temple(D)
-   8  {5 7}                 # d_xak_tsaroth  -> surface(<)
-   9  {5 7}                 # i_temple       -> surface(<)
-   10 {5 3  2 11  4 12}     # o_qualinesti   -> darken_wood(<) palace(D) sea_coast(>)
-   11 {5 10}                # i_palace       -> qualinesti(<)
-   12 {5 10  7 13  4 14}    # o_sea_coast    -> qualinesti(<) newsea(P) tarsis(>)
-   13 {7 12}                # w_newsea       -> sea_coast(P)
-   14 {5 12  2 15  4 17  7 16} # o_tarsis   -> sea_coast(<) library(D) pax_tharkas(>) ergoth(P)
-   15 {5 14}                # i_library      -> tarsis(<)
-   16 {7 14}                # o_ergoth_coast -> tarsis(P)
-   17 {5 14  2 18  4 19}    # o_pax_tharkas  -> tarsis(<) great_hall(D) dungeon(>)
-   18 {5 17}                # i_pax_hall     -> pax_tharkas(<)
-   19 {5 17}})              # d_pax_tharkas  -> pax_tharkas(<)
+  {
+    0 {2 [ 1  1  1 :south] 4 [ 3  5 14 :north]}
+    1 {2 [ 2  7 14 :north] 5 [ 0  8  3 :south]}
+    2 {5 [ 1 13 14 :north]}
+    3 {2 [10  8 14 :north] 4 [ 4  5 14 :north] 5 [ 0 14 14 :north]}
+    4 {2 [ 5  7 14 :north] 4 [ 7  7 14 :north] 5 [ 3 13 14 :north] 7 [ 6  2 14 :north]}
+    5 {5 [ 4  6  5 :south]}
+    6 {5 [ 4  6  1 :south]}
+    7 {2 [ 9  2 14 :north] 4 [ 8  7 14 :north] 5 [ 4 13 14 :north]}
+    8 {5 [ 7  8 13 :north]}
+    9 {5 [ 7  7  6 :south]}
+   10 {2 [11  8 14 :north] 4 [12  8 14 :north] 5 [ 3  6  1 :south]}
+   11 {5 [10  7  1 :south]}
+   12 {4 [14  8 13 :north] 5 [10 14 13 :north] 7 [13  8  7 :south]}
+   13 {7 [12 13 11 :west]}
+   14 {2 [15  7 14 :north] 4 [17  7 13 :north] 5 [12 13 13 :north] 7 [16  7  7 :south]}
+   15 {5 [14  2  3 :east]}
+   16 {7 [14  6  1 :south]}
+   17 {2 [18  7 14 :north] 4 [19  7 14 :north] 5 [14 14 14 :north]}
+   18 {5 [17  7  7 :south]}
+   19 {5 [17  7 11 :south]}
+  })
 
 (defn get-connection [level tile]
-  "Return destination level number for this tile on this level, or nil."
+  "Return [dest-level arr-x arr-y arr-dir] or nil."
   (get-in CONNECTIONS [level tile]))
 
 # ── Tile character → integer ───────────────────────────────────
@@ -293,17 +298,16 @@
     (put mw :player (w :player))
     mw))
 
-(defn travel! [world dest-level]
-  "Travel to dest-level. Updates world table in-place."
-  (let [data (load-level dest-level)
-        [sx sy sdir] (data :spawn)]
+(defn travel! [world dest-level arr-x arr-y arr-dir]
+  "Travel to dest-level, placing the player at (arr-x, arr-y) facing arr-dir."
+  (let [data (load-level dest-level)]
     (put world :level    dest-level)
     (put world :tiles    (array/slice (data :tiles)))
     (put world :entities (make-entities (data :npcs)))
     (put world :fog      (array/new-filled (* MAP-W MAP-H) true))
-    (put (world :player) :x sx)
-    (put (world :player) :y sy)
-    (put (world :player) :dir sdir)))
+    (put (world :player) :x arr-x)
+    (put (world :player) :y arr-y)
+    (put (world :player) :dir arr-dir)))
 
 (defn reveal-fog! [world]
   (let [px (get-in world [:player :x])

@@ -59,6 +59,14 @@
 (def COL-BLUE     [ 60 100 200 255])
 (def COL-CYAN     [ 60 200 200 255])
 (def COL-PANEL-BG [ 10  10  20 255])
+
+# ── Environment colours (ceiling / floor by map type) ─────────
+(def ENV-COLORS
+  # map-prefix -> [ceiling-color floor-color]
+  {:d [[ 40  25  15 255] [ 30  18  10 255]]   # dungeon: dark brown / dark brown
+   :i [[ 90  80  70 255] [ 70  65  60 255]]   # interior: brown ceiling / stone gray floor
+   :o [[ 90 140 200 255] [ 90  70  50 255]]   # overland: heaven blue ceiling / dirt brown floor
+   :w [[ 90 140 200 255] [ 30  80 140 255]]}) # water: heaven blue ceiling / water blue floor
 (def COL-SEP      [ 60  55  50 255])
 
 # ── Draw helpers ─────────────────────────────────────────────
@@ -195,11 +203,18 @@
         (line ren cx cy lx2 ly2 (if active COL-CYAN [60 60 60 255]))
         (text ren font lbl tx ty col)))))
 
-(defn draw-3d-view [ren font tiles player]
-  # Ceiling and floor background
-  (fill ren VIEW-X PANEL-Y VIEW-W (math/floor (/ PANEL-H 2)) COL-STONE)
-  (fill ren VIEW-X (+ PANEL-Y (math/floor (/ PANEL-H 2)))
-            VIEW-W (math/ceil  (/ PANEL-H 2)) COL-FLOOR)
+(defn draw-3d-view [ren font tiles player level]
+  # Ceiling and floor — colour by map type prefix (d_ i_ o_ w_)
+  (let [level-names {0 "o" 1 "i" 2 "i" 3 "o" 4 "o" 5 "i" 6 "d" 7 "o"
+                     8 "d" 9 "i" 10 "o" 11 "i" 12 "o" 13 "w" 14 "o" 15 "i"
+                     16 "o" 17 "o" 18 "i" 19 "d"}
+        prefix      (keyword (or (level-names level) "o"))
+        env         (or (ENV-COLORS prefix) (ENV-COLORS :o))
+        col-ceil    (env 0)
+        col-floor   (env 1)]
+    (fill ren VIEW-X PANEL-Y VIEW-W (math/floor (/ PANEL-H 2)) col-ceil)
+    (fill ren VIEW-X (+ PANEL-Y (math/floor (/ PANEL-H 2)))
+              VIEW-W (math/ceil  (/ PANEL-H 2)) col-floor))
 
   (let [# Map Y increases downward (row 0 = top of map).
         # Raycaster steps use map coords directly, so dir-y must match:
@@ -373,28 +388,39 @@
         (let [cs       (state :combat)
               log-lines (combat/combat-log cs)
               monsters  (combat/living-monsters cs)]
-          (draw-3d-view ren font tiles player)
+          (draw-3d-view ren font tiles player level)
           (draw-text-panel ren font log-lines "COMBAT")
           (draw-minimap ren font tiles fog player))
 
       :dialog
         (let [npc  (state :dialog-npc)
               dlg  (npc :dialog)]
-          (draw-3d-view ren font tiles player)
+          (draw-3d-view ren font tiles player level)
           (draw-text-panel ren font dlg (string (npc :name) " says:"))
           (draw-minimap ren font tiles fog player))
 
       :inventory
         (do
-          (draw-3d-view ren font tiles player)
+          (draw-3d-view ren font tiles player level)
           (draw-text-panel ren font [] "INVENTORY")
           (draw-minimap ren font tiles fog player)
           (draw-inventory ren font par act-idx))
 
       # :explore and default
       (do
-        (draw-3d-view ren font tiles player)
-        (let [loc-name  (if (= level 0) "Solace, Abanasinia" "Ruins of Xak Tsaroth")
+        (draw-3d-view ren font tiles player level)
+        (let [level-display
+              {0  "Solace, Abanasinia"      1  "Inn of the Last Home"
+               2  "Tika's Room"             3  "Darken Wood"
+               4  "Que-Shu Plains"          5  "Chieftain's Hut"
+               6  "Crystal Cave"            7  "Xak Tsaroth Ruins"
+               8  "Xak Tsaroth Depths"      9  "Mishakal's Temple"
+               10 "Qualinesti"              11 "Speaker's Palace"
+               12 "Sea of Blood Coast"      13 "The New Sea"
+               14 "Tarsis"                  15 "Library of Tarsis"
+               16 "Ergoth Coast"            17 "Pax Tharkas"
+               18 "Great Hall of Pax Tharkas" 19 "Dungeons of Pax Tharkas"}
+              loc-name  (or (level-display level) (string "Level " level))
               dir-name  (case (player :dir)
                           :north "North" :south "South"
                           :east  "East"  :west  "West" "?")
