@@ -429,15 +429,16 @@
   (fill 32 32 (- WIN-W 64) 80 [10 8 4 255])
   (outline 32 32 (- WIN-W 64) 80 COL-GOLD)
 
-  # Title — centred, large
-  (let [title "GOLD  BOX  ENGINE"]
-    (text font title 260 44 COL-GOLD)
-    # Underline the title
-    (line 260 68 (+ 260 (length title) 240) 68 COL-GOLD))
-
-  # Subtitle
-  (text font "Dragonlance  —  War of the Lance"
-        310 74 COL-GRAY)
+  # Title and subtitle — centred in the 1024px window
+  # DejaVu Mono 16px => approx 9px per glyph; window centre = 512
+  (let [title    "GOLD  BOX  ENGINE"
+        subtitle "Dragonlance  -  War of the Lance"
+        ch-w     9
+        title-x    (- 512 (math/floor (/ (* (length title)    ch-w) 2)))
+        sub-x      (- 512 (math/floor (/ (* (length subtitle) ch-w) 2)))]
+    (text font title    title-x 44 COL-GOLD)
+    (line title-x 68 (+ title-x (* (length title) ch-w)) 68 COL-GOLD)
+    (text font subtitle sub-x   74 COL-GRAY))
 
   # ── Decorative dragon silhouette (ASCII) ─────────────────────
   (let [art ["     /\\_____/\\"
