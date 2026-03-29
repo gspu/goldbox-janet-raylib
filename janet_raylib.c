@@ -206,14 +206,30 @@ static Janet cfun_poll_events(int32_t argc, Janet *argv)
     return janet_wrap_table(t);
 }
 
-/* (rl/open-font path size) → font-handle */
+/* (rl/open-font path size) -> font-handle */
 static Janet cfun_open_font(int32_t argc, Janet *argv)
 {
     janet_fixarity(argc, 2);
     const char *path = janet_getcstring(argv, 0);
     int         size = janet_getinteger(argv, 1);
     JRFont *jf = janet_abstract(&janet_rl_font_type, sizeof(JRFont));
-    jf->rl_font = LoadFontEx(path, size, NULL, 0);
+
+    /* Build codepoint list: printable ASCII (32-126) plus arrow symbols
+       used in UI hints.  Anything not in this list renders as '?'.
+       Arrow codepoints: left=0x2190 up=0x2191 right=0x2192 down=0x2193 */
+    int cp_extra[] = { 0x2190, 0x2191, 0x2192, 0x2193 };
+    int ascii_count = 126 - 32 + 1;
+    int extra_count = 4;
+    int total = ascii_count + extra_count;
+    int *codepoints = (int *)RL_MALLOC(total * sizeof(int));
+    for (int i = 0; i < ascii_count; i++)
+        codepoints[i] = 32 + i;
+    for (int i = 0; i < extra_count; i++)
+        codepoints[ascii_count + i] = cp_extra[i];
+
+    jf->rl_font = LoadFontEx(path, size, codepoints, total);
+    RL_FREE(codepoints);
+
     if (jf->rl_font.texture.id == 0)
         jf->rl_font = GetFontDefault();
     return janet_wrap_abstract(jf);
@@ -292,6 +308,7 @@ static void janet_raylib_register(JanetTable *env)
     janet_def(env, "SC_S",         janet_wrap_integer(KEY_S),         "spell/save");
     janet_def(env, "SC_F",         janet_wrap_integer(KEY_F),         "flee");
     janet_def(env, "SC_L",         janet_wrap_integer(KEY_L),         "load");
+    janet_def(env, "SC_N",         janet_wrap_integer(KEY_N),         "new game");
     janet_def(env, "SC_F1",        janet_wrap_integer(KEY_F1),        "party member 1");
     janet_def(env, "SC_F2",        janet_wrap_integer(KEY_F2),        "party member 2");
     janet_def(env, "SC_F3",        janet_wrap_integer(KEY_F3),        "party member 3");

@@ -25,7 +25,8 @@
   (let [w (world/make-world)
         p (party/make-party)]
     (world/reveal-fog! w)
-    @{:mode        :explore
+    @{:mode        :startscreen
+      :start-selected 0
       :world       w
       :party       p
       :active-idx  0
@@ -150,7 +151,8 @@
 
       # Save/Load menu
       (= key rl/SC_F10)
-        (do (put state :save-selected 0)
+        (do (put state :from-start false)
+            (put state :save-selected 0)
             (set-mode! state :savemenu))
 
       # ESC in explore = quit game
@@ -289,7 +291,7 @@
     (let [slot (state :save-selected)]
       (cond
         (or (= key rl/SC_ESCAPE) (= key rl/SC_F10))
-          (set-mode! state :explore)
+          (set-mode! state (if (state :from-start) :startscreen :explore))
 
         (= key rl/SC_UP)
           (put state :save-selected (% (+ slot savegame/NUM-SLOTS -1) savegame/NUM-SLOTS))
@@ -315,11 +317,56 @@
             (msg! state (string "Slot " (+ slot 1) " deleted."))
             (msg! state (string "Slot " (+ slot 1) " is already empty.")))))))
 
+# ── Start screen handler ─────────────────────────────────────
+# Two options: 0 = New Game  1 = Load Game
+# Keys: ↑ ↓ cycle selection  N = jump to new  L = jump to load
+#       Enter = confirm       ESC = quit
+
+(defn- handle-startscreen [state key]
+  (let [sel (or (state :start-selected) 0)]
+    (cond
+      # Cycle selection with arrow keys
+      (or (= key rl/SC_UP) (= key rl/SC_DOWN))
+        (put state :start-selected (% (+ sel 1) 2))
+
+      # Direct shortcut — New Game
+      (= key rl/SC_N)
+        (do (put state :start-selected 0)
+            (set-mode! state :explore)
+            (msg! state "The War of the Lance has begun. Takhisis stirs.")
+            (msg! state "Your party stands in Solace. Move with arrow keys."))
+
+      # Direct shortcut — Load Game
+      (= key rl/SC_L)
+        (do (put state :start-selected 1)
+            (put state :from-start true)
+            (put state :save-selected 0)
+            (put state :save-naming false)
+            (put state :save-name-buf "")
+            (set-mode! state :savemenu))
+
+      # Enter — confirm whichever button is highlighted
+      (= key rl/SC_RETURN)
+        (case sel
+          0 (do (set-mode! state :explore)
+                (msg! state "The War of the Lance has begun. Takhisis stirs.")
+                (msg! state "Your party stands in Solace. Move with arrow keys."))
+          1 (do (put state :from-start true)
+                (put state :save-selected 0)
+                (put state :save-naming false)
+                (put state :save-name-buf "")
+                (set-mode! state :savemenu)))
+
+      # ESC quits immediately from start screen
+      (= key rl/SC_ESCAPE)
+        (put state :running false))))
+
 # ── Top-level event dispatcher ────────────────────────────────
 
 (defn dispatch-key! [state key]
   "Route a keydown scancode to the correct mode handler."
   (case (state :mode)
+    :startscreen (handle-startscreen state key)
     :explore   (handle-explore   state key)
     :combat    (handle-combat    state key)
     :dialog    (handle-dialog    state key)

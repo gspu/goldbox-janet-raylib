@@ -404,6 +404,87 @@
                  (if selected COL-CYAN COL-SEP))
         (text font info (+ bx 28) (+ sy 16) txt-col)))))
 
+# ── Start Screen ─────────────────────────────────────────────
+#
+# Shown at launch before the game world is entered.
+# Selection: N = New Game  L = Load  ↑↓ = move cursor  Enter = confirm
+
+(def STARTSCREEN-FLAVOR
+  ["The War of the Lance has begun."
+   "Takhisis, the Dragon Queen, stirs beneath the world."
+   "Five Dragonarmies march across Krynn."
+   "Only the Heroes of the Lance stand against the darkness."
+   ""
+   "Your journey begins in Solace, Abanasinia."])
+
+(defn draw-startscreen [font selected-idx]
+  # Full black backdrop
+  (fill 0 0 WIN-W WIN-H [0 0 0 255])
+
+  # Outer gold border — two nested rectangles for thickness
+  (outline  16  16 (- WIN-W 32) (- WIN-H 32) COL-GOLD)
+  (outline  20  20 (- WIN-W 40) (- WIN-H 40) COL-SEP)
+
+  # ── Header band ─────────────────────────────────────────────
+  (fill 32 32 (- WIN-W 64) 80 [10 8 4 255])
+  (outline 32 32 (- WIN-W 64) 80 COL-GOLD)
+
+  # Title — centred, large
+  (let [title "GOLD  BOX  ENGINE"]
+    (text font title 260 44 COL-GOLD)
+    # Underline the title
+    (line 260 68 (+ 260 (length title) 240) 68 COL-GOLD))
+
+  # Subtitle
+  (text font "Dragonlance  —  War of the Lance"
+        310 74 COL-GRAY)
+
+  # ── Decorative dragon silhouette (ASCII) ─────────────────────
+  (let [art ["     /\\_____/\\"
+             "   /  o   o  \\"
+             "  ( ==  ^  == )"
+             "   )         ("
+             "  (           )"
+             "   ( (  )  ) )"
+             "  (__(__)(__))"]
+        ax 420  ay 140]
+    (eachp [i ln] art
+      (text font ln ax (+ ay (* i 16)) [80 60 20 255])))
+
+  # ── Flavour text ──────────────────────────────────────────────
+  (let [fy 140]
+    (eachp [i ln] STARTSCREEN-FLAVOR
+      (text font ln 80 (+ fy (* i 20)) COL-GRAY)))
+
+  # ── Buttons ───────────────────────────────────────────────────
+  (def btn-w 320)
+  (def btn-h  64)
+  (def btn-x (- (/ WIN-W 2) (/ btn-w 2)))
+  (def buttons [["N  :  NEW GAME"  :new]
+                ["L  :  LOAD GAME" :load]])
+
+  (eachp [idx [label _]] buttons
+    (let [by      (+ 490 (* idx 90))
+          active  (= idx selected-idx)
+          bg-col  (if active [40 35 10 255]  [12 10 4 255])
+          brd-col (if active COL-GOLD        COL-SEP)
+          txt-col (if active COL-GOLD        COL-GRAY)]
+      (fill    btn-x by btn-w btn-h bg-col)
+      (outline btn-x by btn-w btn-h brd-col)
+      # Inner decorative line
+      (outline (+ btn-x 4) (+ by 4) (- btn-w 8) (- btn-h 8) brd-col)
+      # Selection arrow
+      (when active
+        (text font ">" (- btn-x 22) (+ by 22) COL-GOLD))
+      (text font label (+ btn-x 60) (+ by 22) txt-col)))
+
+  # ── Footer hint ───────────────────────────────────────────────
+  (let [hint "↑ ↓  or  N / L  to select     ENTER  to confirm     ESC  to quit"]
+    (text font hint 200 (- WIN-H 44) COL-GRAY))
+
+  # Bottom border line above hint
+  (line 32 (- WIN-H 56) (- WIN-W 32) (- WIN-H 56) COL-SEP))
+
 # ── Full-frame render ─────────────────────────────────────────
 
 (defn render-frame [font state]
@@ -420,6 +501,12 @@
     # Clear
     (rl/set-color 0 0 0 255)
     (rl/clear)
+
+    # Start screen — full-screen, skip all game panels
+    (when (= mode :startscreen)
+      (draw-startscreen font (or (state :start-selected) 0))
+      (rl/present)
+      (break))
 
     # Panels
     (draw-title font mode level)
