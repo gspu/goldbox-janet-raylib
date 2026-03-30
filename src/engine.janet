@@ -88,13 +88,15 @@
         (let [[dx dy] (world/facing-delta (player :dir))
               nx (+ (player :x) dx)
               ny (+ (player :y) dy)
-              npc (world/npc-at (w :entities) nx ny)]
+              npc (world/npc-at (w :entities) nx ny)
+              speaker ((par (state :active-idx)) :name)]
           (if npc
             (do
               (put state :dialog-npc npc)
               (set-mode! state :dialog)
+              (msg! state (string speaker ": \"" (npc :name) "?\""))
               (msg! state (string (npc :name) ": " (first (npc :dialog)))))
-            (msg! state "There is no one to talk to.")))
+            (msg! state (string speaker " sees no one to talk to."))))
 
       # Rest
       (= key rl/SC_C)
@@ -160,10 +162,10 @@
         (put state :running false)
 
       # Party member select
-      (= key rl/SC_F1) (put state :active-idx 0)
-      (= key rl/SC_F2) (put state :active-idx 1)
-      (= key rl/SC_F3) (put state :active-idx 2)
-      (= key rl/SC_F4) (put state :active-idx 3))))
+      (= key rl/SC_F1) (do (put state :active-idx 0) (msg! state (string ((par 0) :name) " leads the party.")))
+      (= key rl/SC_F2) (do (put state :active-idx 1) (msg! state (string ((par 1) :name) " leads the party.")))
+      (= key rl/SC_F3) (do (put state :active-idx 2) (msg! state (string ((par 2) :name) " leads the party.")))
+      (= key rl/SC_F4) (do (put state :active-idx 3) (msg! state (string ((par 3) :name) " leads the party."))))))
 
 # ── Combat handlers ───────────────────────────────────────────
 

@@ -272,10 +272,47 @@
                                   (= tile 1) [shade shade (math/floor (* shade 0.8)) 255]
                                   [(math/floor (* shade 0.8)) shade (math/floor (* shade 0.6)) 255])]
                   (set-col col-shade)
-                  (rl/fill-rect (+ VIEW-X screen-x) (+ PANEL-Y draw-top) 1 draw-h))))))))
+                  (rl/fill-rect (+ VIEW-X screen-x) (+ PANEL-Y draw-top) 1 draw-h)))))))))
 
   # Compass overlay — drawn after walls so it's always on top
-  (draw-compass font (player :dir))))
+  (draw-compass font (player :dir)))
+
+(defn draw-active-char-overlay [font party active-idx]
+  "Bottom-left corner of the 3D view — shows who is currently leading
+   (walking / talking). F1-F4 selects the active character."
+  (when (and (>= active-idx 0) (< active-idx (length party)))
+    (let [ch    (party active-idx)
+          alive (party/alive? ch)
+          bx    (+ VIEW-X 6)
+          by    (- (+ PANEL-Y PANEL-H) 54)
+          bw    180
+          bh    50]
+      # Semi-transparent backdrop
+      (fill bx by bw bh [0 0 0 170])
+      (outline bx by bw bh (if alive COL-CYAN COL-RED))
+
+      # Key hint   F1·F2·F3·F4
+      (let [keys ["F1" "F2" "F3" "F4"]]
+        (for i 0 (min 4 (length party))
+          (let [kx   (+ bx 4 (* i 44))
+                ky   (+ by 4)
+                active (= i active-idx)
+                kc   (if active COL-GOLD COL-GRAY)]
+            (when active
+              (fill kx ky 40 12 [40 35 8 200]))
+            (text font (keys i) kx ky kc))))
+
+      # Character name + class
+      (let [name-col (if alive COL-CYAN COL-RED)
+            info     (string (ch :name) "  " (ch :class))]
+        (text font info (+ bx 4) (+ by 19) name-col))
+
+      # HP bar
+      (draw-hp-bar (+ bx 4) (+ by 36) (- bw 8) 9
+                   (ch :hp) (ch :hp-max))
+      # HP numbers
+      (text font (string (ch :hp) "/" (ch :hp-max))
+            (+ bx 4) (+ by 36) COL-DARK))))
 
 # ── Isometric combat view ────────────────────────────────────
 #
@@ -644,15 +681,15 @@
     (rl/clear)
 
     # Start screen — full-screen, skip all game panels
-    (when (= mode :startscreen)
-      (draw-startscreen font (or (state :start-selected) 0))
-      (rl/present)
-      (break))
+    (if (= mode :startscreen)
+      (do
+        (draw-startscreen font (or (state :start-selected) 0))
+        (rl/present))
+      (do
+        # Panels
+        (draw-title font mode level)
 
-    # Panels
-    (draw-title font mode level)
-
-    (case mode
+        (case mode
       :combat
         (let [cs       (state :combat)
               log-lines (combat/combat-log cs)
@@ -665,18 +702,21 @@
         (let [npc  (state :dialog-npc)
               dlg  (npc :dialog)]
           (draw-3d-view font tiles player level (world/level-tex-config level) textures)
+          (draw-active-char-overlay font par act-idx)
           (draw-text-panel font dlg (string (npc :name) " says:"))
           (draw-minimap font tiles fog player))
 
       :inventory
         (do
           (draw-3d-view font tiles player level (world/level-tex-config level) textures)
+          (draw-active-char-overlay font par act-idx)
           (draw-text-panel font [] "INVENTORY")
           (draw-minimap font tiles fog player))
 
       # :explore and default
       (do
         (draw-3d-view font tiles player level (world/level-tex-config level) textures)
+        (draw-active-char-overlay font par act-idx)
         (let [level-display
               {0  "Solace, Abanasinia"      1  "Inn of the Last Home"
                2  "Tika's Room"             3  "Darken Wood"
@@ -694,7 +734,9 @@
                           :east  "East"  :west  "West" "?")
               area-lines [(string "Location: " loc-name)
                           (string "Facing:   " dir-name)
-                          (string "Position: " (player :x) ", " (player :y))]]
+                          (string "Position: " (player :x) ", " (player :y))
+                          ""
+                          (string "Active:   " ((par act-idx) :name))]]
           (draw-text-panel font area-lines "AREA INFO"))
         (draw-minimap font tiles fog player)))
 
@@ -707,4 +749,4 @@
     (when (= mode :savemenu)
       (draw-savemenu font state))
 
-    (rl/present)))
+    (rl/present)))))
