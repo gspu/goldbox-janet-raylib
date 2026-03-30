@@ -6,7 +6,9 @@
 
 (defn make-combat [party-members monsters]
   "Build a fresh combat state table.
-   Rolls initiative for every participant and sorts descending."
+   Rolls initiative for every participant and sorts descending.
+   Assigns isometric grid starting positions: heroes on left,
+   monsters on right of a 12×8 battlefield."
   (let [combatants
         (array/concat
           (map (fn [ch]
@@ -22,8 +24,27 @@
                    :initiative (rng/d6)})
                monsters))]
     (sort-by |(- ($ :initiative)) combatants)
+
+    # Assign starting grid positions.
+    # Heroes occupy cols 1-2 on the left, monsters cols 8-10 on the right.
+    # Rows are staggered so figures never overlap.
+    (def hero-slots    [[2 0] [1 2] [2 4] [1 6]])
+    (def monster-slots [[9 0] [10 2] [9 4] [10 6] [8 1] [11 3] [8 5] [10 0]])
+    (def positions @{})
+    (var hero-n 0)
+    (var mon-n  0)
+    (eachp [i c] combatants
+      (if (= :hero (c :kind))
+        (do (when (< hero-n (length hero-slots))
+              (put positions i (hero-slots hero-n)))
+            (++ hero-n))
+        (do (when (< mon-n (length monster-slots))
+              (put positions i (monster-slots mon-n)))
+            (++ mon-n))))
+
     @{:combatants combatants
       :monsters   monsters
+      :positions  positions
       :turn-idx   0
       :phase      :active   # :active | :victory | :defeat
       :log        @[]}))

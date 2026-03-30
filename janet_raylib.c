@@ -423,6 +423,54 @@ static Janet cfun_draw_floor_ceiling(int32_t argc, Janet *argv)
 }
 
 /* ═══════════════════════════════════════════════════════════════
+ * Isometric diamond primitives
+ * Used by the Gold Box-style tactical combat view.
+ *
+ * A diamond is drawn as four triangles meeting at the centre.
+ * Raylib requires CCW winding in screen-space (y increases down),
+ * so for each quadrant we go: centre → spoke_A → spoke_B.
+ * ═══════════════════════════════════════════════════════════════ */
+
+/* (rl/fill-diamond cx cy hw hh) — filled diamond centred at (cx,cy) */
+static Janet cfun_fill_diamond(int32_t argc, Janet *argv)
+{
+    janet_fixarity(argc, 4);
+    float cx = (float)janet_getinteger(argv, 0);
+    float cy = (float)janet_getinteger(argv, 1);
+    float hw = (float)janet_getinteger(argv, 2);   /* half-width  */
+    float hh = (float)janet_getinteger(argv, 3);   /* half-height */
+
+    Vector2 top    = {cx,      cy - hh};
+    Vector2 right  = {cx + hw, cy};
+    Vector2 bottom = {cx,      cy + hh};
+    Vector2 left   = {cx - hw, cy};
+    Vector2 center = {cx,      cy};
+
+    /* CCW order (y-down screen space): centre → spokeCCW → spokeCW */
+    DrawTriangle(center, top,    right,  g_draw_color);
+    DrawTriangle(center, right,  bottom, g_draw_color);
+    DrawTriangle(center, bottom, left,   g_draw_color);
+    DrawTriangle(center, left,   top,    g_draw_color);
+    return janet_wrap_nil();
+}
+
+/* (rl/draw-diamond-lines cx cy hw hh) — diamond outline */
+static Janet cfun_draw_diamond_lines(int32_t argc, Janet *argv)
+{
+    janet_fixarity(argc, 4);
+    int cx = janet_getinteger(argv, 0);
+    int cy = janet_getinteger(argv, 1);
+    int hw = janet_getinteger(argv, 2);
+    int hh = janet_getinteger(argv, 3);
+
+    DrawLine(cx,      cy - hh, cx + hw, cy,      g_draw_color);
+    DrawLine(cx + hw, cy,      cx,      cy + hh, g_draw_color);
+    DrawLine(cx,      cy + hh, cx - hw, cy,      g_draw_color);
+    DrawLine(cx - hw, cy,      cx,      cy - hh, g_draw_color);
+    return janet_wrap_nil();
+}
+
+/* ═══════════════════════════════════════════════════════════════
  * Module registration
  * ═══════════════════════════════════════════════════════════════ */
 
@@ -444,6 +492,8 @@ static const JanetReg cfuns[] = {
     {"texture-size",       cfun_texture_size,       "(rl/texture-size tex)"},
     {"draw-texture-strip", cfun_draw_texture_strip, "(rl/draw-texture-strip tex u x y h r g b)"},
     {"draw-floor-ceiling", cfun_draw_floor_ceiling, "(rl/draw-floor-ceiling ft ct px py dx dy plx ply vx vy vw vh)"},
+    {"fill-diamond",       cfun_fill_diamond,       "(rl/fill-diamond cx cy hw hh)"},
+    {"draw-diamond-lines", cfun_draw_diamond_lines, "(rl/draw-diamond-lines cx cy hw hh)"},
     {NULL, NULL, NULL}
 };
 

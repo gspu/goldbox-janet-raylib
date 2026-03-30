@@ -277,6 +277,125 @@
   # Compass overlay — drawn after walls so it's always on top
   (draw-compass font (player :dir))))
 
+# ── Isometric combat view ────────────────────────────────────
+#
+# Gold Box-style tactical battlefield shown when an encounter starts.
+# Replaces the 3D first-person view for the duration of combat.
+#
+# Grid: 12 columns × 8 rows of isometric diamond tiles.
+# Heroes are placed on the left (cols 1-2), monsters on the right (cols 8-10).
+# The active combatant is highlighted with a yellow ring.
+#
+# Coordinate mapping (standard isometric, y-down screen space):
+#   screen_x = origin_x + (col - row) * TILE-W/2
+#   screen_y = origin_y + (col + row) * TILE-H/2
+
+(def ISO-COLS 12)
+(def ISO-ROWS  8)
+(def ISO-TW   44)   # full diamond width  in pixels
+(def ISO-TH   22)   # full diamond height in pixels
+
+(defn- iso->screen [ox oy col row]
+  [(math/floor (+ ox (* (- col row) (/ ISO-TW 2))))
+   (math/floor (+ oy (* (+ col row) (/ ISO-TH 2))))])
+
+(defn- draw-iso-tile [ox oy col row]
+  "Draw one checkered floor tile."
+  (let [[cx cy] (iso->screen ox oy col row)
+        hw      (/ ISO-TW 2)
+        hh      (/ ISO-TH 2)
+        checker (% (+ col row) 2)
+        fc      (if (= checker 0) [60 54 44 255] [48 43 36 255])]
+    (set-col fc)
+    (rl/fill-diamond cx cy hw hh)
+    (set-col [76 68 56 255])
+    (rl/draw-diamond-lines cx cy hw hh)))
+
+(defn draw-iso-combat-view [font combat-state]
+  # Grid origin — top vertex of tile (0,0), centred horizontally in the view.
+  # The full grid spans (COLS+ROWS)*TW/2 wide and (COLS+ROWS)*TH/2 tall.
+  (let [ox  (+ VIEW-X (math/floor (/ VIEW-W 2)))
+        oy  (+ PANEL-Y 28)
+        cs  combat-state
+        pos (cs :positions)      # {combatant-idx [col row]}
+        combs (cs :combatants)
+        n   (length combs)
+        turn (if (pos? n) (% (cs :turn-idx) n) 0)]
+
+    # ── Background ──────────────────────────────────────────────
+    (fill VIEW-X PANEL-Y VIEW-W PANEL-H [14 11 9 255])
+
+    # ── Floor tiles (back-to-front row order) ───────────────────
+    (for row 0 ISO-ROWS
+      (for col 0 ISO-COLS
+        (draw-iso-tile ox oy col row)))
+
+    # ── Combatants — sorted back-to-front for correct z-order ──
+    (def entries (array/slice (pairs pos)))
+    (sort-by (fn [[_ [c r]]] (+ c r)) entries)
+
+    (each [idx [col row]] entries
+      (when (< idx (length combs))
+        (let [c       (combs idx)
+              is-hero (= :hero (c :kind))
+              alive   ((c :ref) :alive)
+              active  (= idx turn)
+              [cx cy] (iso->screen ox oy col row)
+              # Figure is slightly smaller than the tile
+              hw      (- (/ ISO-TW 2) 5)
+              hh      (- (/ ISO-TH 2) 3)
+              body-col (cond
+                         (not alive) [55 32 32 255]
+                         active      (if is-hero [110 225 255 255]
+                                                 [255 145 55 255])
+                         is-hero     [75 155 225 255]
+                         [215 72 52 255])]
+
+          # Drop shadow for depth
+          (set-col [0 0 0 90])
+          (rl/fill-diamond cx (+ cy 4) (- hw 2) (- hh 1))
+
+          # Figure body
+          (set-col body-col)
+          (rl/fill-diamond cx cy hw hh)
+
+          # Bright pulsing ring around the active combatant
+          (when active
+            (set-col COL-YELLOW)
+            (rl/draw-diamond-lines cx cy (+ hw 4) (+ hh 3))
+            (set-col [255 255 180 120])
+            (rl/draw-diamond-lines cx cy (+ hw 6) (+ hh 5)))
+
+          # Initial letter
+          (when alive
+            (text font (string/slice (c :name) 0 1)
+                  (- cx 4) (- cy 8)
+                  (if active COL-DARK COL-WHITE)))
+
+          # Skull / X for dead
+          (when (not alive)
+            (set-col [180 40 40 200])
+            (rl/draw-diamond-lines cx cy hw hh)
+            (text font "X" (- cx 4) (- cy 8) COL-RED)))))
+
+    # ── Turn indicator banner ────────────────────────────────────
+    (when (pos? n)
+      (let [active-c (combs turn)
+            banner   (string (active-c :name) "'s turn")]
+        (fill VIEW-X PANEL-Y VIEW-W 22 [20 16 10 200])
+        (text font banner (+ VIEW-X 8) (+ PANEL-Y 5) COL-GOLD)))
+
+    # ── Legend ───────────────────────────────────────────────────
+    (let [lx (+ VIEW-X 8)
+          ly (+ PANEL-Y PANEL-H -42)]
+      (fill VIEW-X (- (+ PANEL-Y PANEL-H) 46) 120 46 [10 8 6 180])
+      (set-col [75 155 225 255])
+      (rl/fill-diamond (+ lx 8) (+ ly 7) 7 4)
+      (text font "Hero" (+ lx 18) (+ ly 1) COL-GRAY)
+      (set-col [215 72 52 255])
+      (rl/fill-diamond (+ lx 8) (+ ly 24) 7 4)
+      (text font "Enemy" (+ lx 18) (+ ly 18) COL-GRAY))))
+
 # ── Text / combat panel ───────────────────────────────────────
 
 (defn draw-text-panel [font lines title]
@@ -538,7 +657,7 @@
         (let [cs       (state :combat)
               log-lines (combat/combat-log cs)
               monsters  (combat/living-monsters cs)]
-          (draw-3d-view font tiles player level (world/level-tex-config level) textures)
+          (draw-iso-combat-view font cs)
           (draw-text-panel font log-lines "COMBAT")
           (draw-minimap font tiles fog player))
 
