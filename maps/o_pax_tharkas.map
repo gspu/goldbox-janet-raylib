@@ -6,6 +6,13 @@
 level 17
 spawn 7 2 south
 
+textures
+wall brick_wall
+floor dirt
+ceiling sky
+door wood_plank
+endtextures
+
 map
 ################
 #..............#

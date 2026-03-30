@@ -6,6 +6,13 @@
 level 2
 spawn 7 7 east
 
+textures
+wall wood_planks
+floor wood_floor
+ceiling dark_brick
+door wood_plank
+endtextures
+
 map
 ################
 #..............#

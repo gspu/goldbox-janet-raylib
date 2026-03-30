@@ -101,7 +101,7 @@
 # ── Map file parser ────────────────────────────────────────────
 
 (defn- parse-map-file [path]
-  (def result @{:level 0 :spawn [1 1 :north] :tiles @[] :npcs @[]})
+  (def result @{:level 0 :spawn [1 1 :north] :tiles @[] :npcs @[] :tex-config @{}})
   (def lines (string/split "\n" (slurp path)))
   (var mode :header)
   (var map-rows @[])
@@ -112,6 +112,15 @@
                (or (= mode :map) (= mode :npc)
                    (not (string/has-prefix? "#" line))))
       (cond
+        (= line "textures")
+          (set mode :textures)
+        (= line "endtextures")
+          (set mode :header)
+        (= mode :textures)
+          (let [parts (string/split " " line)
+                k     (keyword (parts 0))
+                v     (if (> (length parts) 1) (parts 1) "")]
+            (when (not= v "") (put (result :tex-config) k v)))
         (string/has-prefix? "level " line)
           (put result :level (scan-number (string/trim (string/slice line 6))))
         (string/has-prefix? "spawn " line)
@@ -152,6 +161,32 @@
           (array/push (cur-npc :dialog) line))))
   result)
 
+# ── Default texture config by map prefix ──────────────────────
+# Each map file can override these with a textures/endtextures block.
+# Prefix: o=overland  i=interior  d=dungeon  w=water
+
+# Default texture config per map-type prefix.
+# Keys:  wall  floor  ceiling  door
+# Any key can be overridden per-map inside a textures/endtextures block.
+# Texture names must match a .png file (without extension) in textures/.
+(def DEFAULT-TEX-CONFIG
+  {:o {:wall    "stone_wall"
+       :floor   "dirt"
+       :ceiling "sky"
+       :door    "wood_plank"}
+   :i {:wall    "castle_stone"
+       :floor   "wood_floor"
+       :ceiling "dark_brick"
+       :door    "wood_plank"}
+   :d {:wall    "dungeon_stone"
+       :floor   "stone_tile"
+       :ceiling "dungeon_stone"
+       :door    "wood_plank"}
+   :w {:wall    "cave_wall"
+       :floor   "water"
+       :ceiling "sky"
+       :door    "wood_plank"}})
+
 # ── Level cache ────────────────────────────────────────────────
 
 (var *cache* @{})
@@ -169,6 +204,10 @@
     (do
       (def name (LEVEL-FILES level-num))
       (def data (parse-map-file (string (find-map-dir) "/" name ".map")))
+      # Merge default tex-config with any file-level overrides
+      (def prefix (keyword (string/slice name 0 1)))
+      (def default-tc (or (DEFAULT-TEX-CONFIG prefix) {}))
+      (put data :tex-config (merge default-tc (data :tex-config)))
       (put *cache* level-num data)
       data)))
 
@@ -276,6 +315,10 @@
       (let [group (table (% (math/floor (* (math/random) (length table))) (length table)))]
         (map make-monster group))
       [])))
+
+(defn level-tex-config [level-num]
+  "Return merged tex-config for level-num (default + map-file overrides)."
+  ((load-level level-num) :tex-config))
 
 # ── World factory ──────────────────────────────────────────────
 

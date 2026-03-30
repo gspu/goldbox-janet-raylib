@@ -6,6 +6,13 @@
 level 15
 spawn 7 7 east
 
+textures
+wall castle_stone
+floor wood_floor
+ceiling dark_brick
+door wood_plank
+endtextures
+
 map
 ################
 #.#.#.#.#.#.#..#

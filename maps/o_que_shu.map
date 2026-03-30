@@ -6,6 +6,13 @@
 level 4
 spawn 7 2 south
 
+textures
+wall stone_wall
+floor dirt
+ceiling sky
+door wood_plank
+endtextures
+
 map
 ################
 #.....P........#

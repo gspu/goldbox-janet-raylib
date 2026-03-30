@@ -6,6 +6,13 @@
 level 1
 spawn 2 2 south
 
+textures
+wall wood_planks
+floor wood_floor
+ceiling dark_brick
+door wood_plank
+endtextures
+
 map
 ################
 #<.............#

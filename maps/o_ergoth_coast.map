@@ -6,6 +6,13 @@
 level 16
 spawn 7 6 east
 
+textures
+wall stone_wall
+floor dirt
+ceiling sky
+door wood_plank
+endtextures
+
 map
 ################
 #..............#

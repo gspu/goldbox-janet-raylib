@@ -6,6 +6,13 @@
 level 14
 spawn 7 7 north
 
+textures
+wall castle_stone
+floor stone_tile
+ceiling sky
+door wood_plank
+endtextures
+
 map
 ################
 #.....P........#

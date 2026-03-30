@@ -1,6 +1,7 @@
 #include <janet.h>
 #include <raylib.h>
 #include <string.h>
+#include <math.h>
 
 /* ═══════════════════════════════════════════════════════════════
  * Global render state
@@ -263,6 +264,164 @@ static Janet cfun_draw_text(int32_t argc, Janet *argv)
     return janet_wrap_nil();
 }
 
+
+/* ===================================================================
+ * Texture type — GPU texture + CPU image (for floor/ceiling sampling)
+ * =================================================================== */
+
+typedef struct {
+    Texture2D gpu_tex;
+    Image     cpu_img;
+} JRTexture;
+
+static int rl_texture_gc(void *p, size_t s)
+{
+    (void)s;
+    JRTexture *jt = (JRTexture *)p;
+    if (jt->gpu_tex.id   != 0)    { UnloadTexture(jt->gpu_tex); jt->gpu_tex.id = 0; }
+    if (jt->cpu_img.data != NULL) { UnloadImage(jt->cpu_img);  jt->cpu_img.data = NULL; }
+    return 0;
+}
+
+static const JanetAbstractType janet_rl_texture_type = {
+    "raylib/texture", rl_texture_gc, NULL, NULL, NULL,
+    NULL, NULL, NULL, NULL, NULL, NULL, NULL
+};
+
+/* (rl/load-texture path) -> texture-handle or nil on failure */
+static Janet cfun_load_texture(int32_t argc, Janet *argv)
+{
+    janet_fixarity(argc, 1);
+    const char *path = janet_getcstring(argv, 0);
+    Image img = LoadImage(path);
+    if (img.data == NULL) return janet_wrap_nil();
+    ImageFormat(&img, PIXELFORMAT_UNCOMPRESSED_R8G8B8A8);
+    JRTexture *jt = janet_abstract(&janet_rl_texture_type, sizeof(JRTexture));
+    jt->cpu_img = img;
+    jt->gpu_tex = LoadTextureFromImage(img);
+    return janet_wrap_abstract(jt);
+}
+
+/* (rl/unload-texture tex) -> nil  — explicit early unload */
+static Janet cfun_unload_texture(int32_t argc, Janet *argv)
+{
+    janet_fixarity(argc, 1);
+    JRTexture *jt = janet_getabstract(argv, 0, &janet_rl_texture_type);
+    if (jt->gpu_tex.id   != 0)    { UnloadTexture(jt->gpu_tex); jt->gpu_tex.id = 0; }
+    if (jt->cpu_img.data != NULL) { UnloadImage(jt->cpu_img);  jt->cpu_img.data = NULL; }
+    return janet_wrap_nil();
+}
+
+/* (rl/texture-size tex) -> [w h] */
+static Janet cfun_texture_size(int32_t argc, Janet *argv)
+{
+    janet_fixarity(argc, 1);
+    JRTexture *jt = janet_getabstract(argv, 0, &janet_rl_texture_type);
+    Janet *tup = janet_tuple_begin(2);
+    tup[0] = janet_wrap_integer(jt->gpu_tex.width);
+    tup[1] = janet_wrap_integer(jt->gpu_tex.height);
+    return janet_wrap_tuple(janet_tuple_end(tup));
+}
+
+/* (rl/draw-texture-strip tex u dst-x dst-y dst-h r g b) -> nil
+   Draws one pixel-wide vertical strip at texture column u [0,1) scaled
+   to dst-h pixels on screen.  r/g/b are the distance shade (0-255). */
+static Janet cfun_draw_texture_strip(int32_t argc, Janet *argv)
+{
+    janet_fixarity(argc, 8);
+    JRTexture *jt = janet_getabstract(argv, 0, &janet_rl_texture_type);
+    float u   = (float)janet_getnumber(argv, 1);
+    int dst_x = janet_getinteger(argv, 2);
+    int dst_y = janet_getinteger(argv, 3);
+    int dst_h = janet_getinteger(argv, 4);
+    int r     = janet_getinteger(argv, 5);
+    int g     = janet_getinteger(argv, 6);
+    int b     = janet_getinteger(argv, 7);
+
+    if (jt->gpu_tex.id == 0 || dst_h <= 0) return janet_wrap_nil();
+
+    float tw  = (float)jt->gpu_tex.width;
+    float th  = (float)jt->gpu_tex.height;
+    float sx  = u * tw;
+    if (sx < 0.0f) sx = 0.0f;
+    if (sx >= tw)  sx = tw - 1.0f;
+
+    Rectangle src = { sx, 0.0f, 1.0f, th };
+    Rectangle dst = { (float)dst_x, (float)dst_y, 1.0f, (float)dst_h };
+    Color tint = { (unsigned char)r, (unsigned char)g, (unsigned char)b, 255 };
+    DrawTexturePro(jt->gpu_tex, src, dst, (Vector2){0.0f,0.0f}, 0.0f, tint);
+    return janet_wrap_nil();
+}
+
+/* (rl/draw-floor-ceiling floor-tex ceil-tex
+       px py dir-x dir-y plane-x plane-y
+       view-x view-y view-w view-h) -> nil
+   Classic floor-casting scanline renderer.
+   Pass nil for floor-tex or ceil-tex to skip that surface. */
+static Janet cfun_draw_floor_ceiling(int32_t argc, Janet *argv)
+{
+    janet_fixarity(argc, 12);
+
+    JRTexture *floor_tex = NULL;
+    JRTexture *ceil_tex  = NULL;
+    if (janet_checktype(argv[0], JANET_ABSTRACT))
+        floor_tex = (JRTexture *)janet_getabstract(argv, 0, &janet_rl_texture_type);
+    if (janet_checktype(argv[1], JANET_ABSTRACT))
+        ceil_tex  = (JRTexture *)janet_getabstract(argv, 1, &janet_rl_texture_type);
+    if (!floor_tex && !ceil_tex) return janet_wrap_nil();
+
+    float px      = (float)janet_getnumber(argv, 2);
+    float py      = (float)janet_getnumber(argv, 3);
+    float dir_x   = (float)janet_getnumber(argv, 4);
+    float dir_y   = (float)janet_getnumber(argv, 5);
+    float plane_x = (float)janet_getnumber(argv, 6);
+    float plane_y = (float)janet_getnumber(argv, 7);
+    int view_x    = janet_getinteger(argv, 8);
+    int view_y    = janet_getinteger(argv, 9);
+    int view_w    = janet_getinteger(argv, 10);
+    int view_h    = janet_getinteger(argv, 11);
+
+    int halfH = view_h / 2;
+
+    for (int y = 0; y < view_h; y++) {
+        int rel_y  = y - halfH;
+        if (rel_y == 0) continue;
+        int is_floor = (rel_y > 0);
+        JRTexture *tex = is_floor ? floor_tex : ceil_tex;
+        if (!tex || !tex->cpu_img.data) continue;
+
+        float absY   = (float)(rel_y < 0 ? -rel_y : rel_y);
+        float rowDist = (float)halfH / absY;
+
+        float stepX = rowDist * 2.0f * plane_x / (float)view_w;
+        float stepY = rowDist * 2.0f * plane_y / (float)view_w;
+
+        float floorX = px + rowDist * (dir_x - plane_x);
+        float floorY = py + rowDist * (dir_y - plane_y);
+
+        int tw = tex->cpu_img.width;
+        int th = tex->cpu_img.height;
+
+        float shade = 1.0f - rowDist / 12.0f;
+        if (shade < 0.25f) shade = 0.25f;
+        if (shade > 1.0f)  shade = 1.0f;
+
+        for (int x = 0; x < view_w; x++, floorX += stepX, floorY += stepY) {
+            int tx = (int)(floorX * (float)tw) % tw;
+            int ty = (int)(floorY * (float)th) % th;
+            if (tx < 0) tx += tw;
+            if (ty < 0) ty += th;
+
+            Color col = GetImageColor(tex->cpu_img, tx, ty);
+            col.r = (unsigned char)((float)col.r * shade);
+            col.g = (unsigned char)((float)col.g * shade);
+            col.b = (unsigned char)((float)col.b * shade);
+            DrawPixel(view_x + x, view_y + y, col);
+        }
+    }
+    return janet_wrap_nil();
+}
+
 /* ═══════════════════════════════════════════════════════════════
  * Module registration
  * ═══════════════════════════════════════════════════════════════ */
@@ -280,6 +439,11 @@ static const JanetReg cfuns[] = {
     {"open-font",    cfun_open_font,    "(rl/open-font path size)"},
     {"close-font",   cfun_close_font,   "(rl/close-font font)"},
     {"draw-text",    cfun_draw_text,    "(rl/draw-text font text x y r g b a)"},
+    {"load-texture",       cfun_load_texture,       "(rl/load-texture path)"},
+    {"unload-texture",     cfun_unload_texture,     "(rl/unload-texture tex)"},
+    {"texture-size",       cfun_texture_size,       "(rl/texture-size tex)"},
+    {"draw-texture-strip", cfun_draw_texture_strip, "(rl/draw-texture-strip tex u x y h r g b)"},
+    {"draw-floor-ceiling", cfun_draw_floor_ceiling, "(rl/draw-floor-ceiling ft ct px py dx dy plx ply vx vy vw vh)"},
     {NULL, NULL, NULL}
 };
 

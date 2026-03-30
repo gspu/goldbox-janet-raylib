@@ -6,6 +6,13 @@
 level 6
 spawn 7 11 south
 
+textures
+wall cave_wall
+floor stone_tile
+ceiling cave_wall
+door wood_plank
+endtextures
+
 map
 ################
 #.....#........#

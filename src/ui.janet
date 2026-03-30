@@ -170,9 +170,14 @@
     (let [perp (if (= side :x)
                  (/ (+ (- map-x px) (/ (- 1 step-x) 2)) ray-dx)
                  (/ (+ (- map-y py) (/ (- 1 step-y) 2)) ray-dy))
-          tile (world/tile-at tiles map-x map-y)]
-      [tile (math/abs perp) side])
-    [nil VIEW-DEPTH :x]))
+          tile (world/tile-at tiles map-x map-y)
+          # Fractional hit position along the wall face — texture U coord
+          wall-hit (if (= side :x)
+                     (+ py (* (math/abs perp) ray-dy))
+                     (+ px (* (math/abs perp) ray-dx)))
+          wall-u   (- wall-hit (math/floor wall-hit))]
+      [tile (math/abs perp) side wall-u])
+    [nil VIEW-DEPTH :x 0.0]))
 
 # ── Compass rose ─────────────────────────────────────────────
 
@@ -198,7 +203,7 @@
         (line cx cy lx2 ly2 (if active COL-CYAN [60 60 60 255]))
         (text font lbl tx ty col)))))
 
-(defn draw-3d-view [font tiles player level]
+(defn draw-3d-view [font tiles player level tex-config textures]
   # Ceiling and floor — colour by map type prefix (d_ i_ o_ w_)
   (let [level-names {0 "o" 1 "i" 2 "i" 3 "o" 4 "o" 5 "i" 6 "d" 7 "o"
                      8 "d" 9 "i" 10 "o" 11 "i" 12 "o" 13 "w" 14 "o" 15 "i"
@@ -212,46 +217,62 @@
               VIEW-W (math/ceil  (/ PANEL-H 2)) col-floor))
 
   (let [# Map Y increases downward (row 0 = top of map).
-        # Raycaster steps use map coords directly, so dir-y must match:
-        #   north = -Y  (up on map)   → angle = -pi/2  → sin = -1
-        #   south = +Y  (down on map) → angle =  pi/2  → sin = +1
-        #   east  = +X               → angle =  0
-        #   west  = -X               → angle =  pi
         angle (case (player :dir)
                 :east   0.0
                 :south  1.5708
                 :west   3.1416
-                :north  4.7124    # = -pi/2, gives dir-y = -1
+                :north  4.7124
                 0.0)
         cam-len (math/tan (/ FOV 2))
         dir-x   (math/cos angle)
         dir-y   (math/sin angle)
-        # Camera plane perpendicular to direction
         plane-x (* (- dir-y) cam-len)
         plane-y (* dir-x     cam-len)
         half    (/ PANEL-H 2)]
+
+    # Floor / ceiling texture overlay — drawn before walls
+    (let [floor-tex (get textures (get tex-config :floor))
+          ceil-tex  (get textures (get tex-config :ceiling))]
+      (rl/draw-floor-ceiling
+        floor-tex ceil-tex
+        (+ (player :x) 0.5) (+ (player :y) 0.5)
+        dir-x dir-y plane-x plane-y
+        VIEW-X PANEL-Y VIEW-W PANEL-H))
 
     (for screen-x 0 VIEW-W
       (let [cam-x  (- (* 2 (/ screen-x VIEW-W)) 1)
             ray-dx (+ dir-x (* plane-x cam-x))
             ray-dy (+ dir-y (* plane-y cam-x))
-            # +0.5 places the ray origin at tile centre, not the corner
-            [tile perp-dist side] (dda-cast tiles (+ (player :x) 0.5) (+ (player :y) 0.5) ray-dx ray-dy)]
+            # +0.5 places the ray origin at tile centre
+            [tile perp-dist side wall-u]
+              (dda-cast tiles (+ (player :x) 0.5) (+ (player :y) 0.5) ray-dx ray-dy)]
         (when (and tile (> perp-dist 0))
           (let [wall-h  (math/floor (/ PANEL-H perp-dist))
                 top     (math/floor (- half (/ wall-h 2)))
                 base    (math/floor (* 255 (max 0 (- 1 (/ perp-dist VIEW-DEPTH)))))
                 shade   (if (= side :y) (math/floor (* base 0.7)) base)
-                col-shade (cond
-                            (= tile 2) [shade (math/floor (* shade 0.6)) 0 255]
-                            (= tile 1) [shade shade (math/floor (* shade 0.8)) 255]
-                            [(math/floor (* shade 0.8)) shade (math/floor (* shade 0.6)) 255])
                 draw-top    (max 0 top)
                 draw-bottom (min PANEL-H (+ top wall-h))
-                draw-h      (- draw-bottom draw-top)]
+                draw-h      (- draw-bottom draw-top)
+                # Pick texture name: door tiles use :door, walls use :wall
+                tex-name (if (or (= tile 2) (= tile 3))
+                           (get tex-config :door)
+                           (get tex-config :wall))
+                wall-tex (and tex-name (get textures tex-name))]
             (when (> draw-h 0)
-              (set-col col-shade)
-              (rl/fill-rect (+ VIEW-X screen-x) (+ PANEL-Y draw-top) 1 draw-h))))))
+              (if wall-tex
+                # Textured wall strip — shade tints the texture by distance
+                (rl/draw-texture-strip wall-tex wall-u
+                                       (+ VIEW-X screen-x)
+                                       (+ PANEL-Y draw-top)
+                                       draw-h shade shade shade)
+                # Fallback: solid colour (original behaviour)
+                (let [col-shade (cond
+                                  (= tile 2) [shade (math/floor (* shade 0.6)) 0 255]
+                                  (= tile 1) [shade shade (math/floor (* shade 0.8)) 255]
+                                  [(math/floor (* shade 0.8)) shade (math/floor (* shade 0.6)) 255])]
+                  (set-col col-shade)
+                  (rl/fill-rect (+ VIEW-X screen-x) (+ PANEL-Y draw-top) 1 draw-h))))))))
 
   # Compass overlay — drawn after walls so it's always on top
   (draw-compass font (player :dir))))
@@ -488,7 +509,7 @@
 
 # ── Full-frame render ─────────────────────────────────────────
 
-(defn render-frame [font state]
+(defn render-frame [font state textures]
   (let [mode    (state :mode)
         w       (state :world)
         par     (state :party)
@@ -517,26 +538,26 @@
         (let [cs       (state :combat)
               log-lines (combat/combat-log cs)
               monsters  (combat/living-monsters cs)]
-          (draw-3d-view font tiles player level)
+          (draw-3d-view font tiles player level (world/level-tex-config level) textures)
           (draw-text-panel font log-lines "COMBAT")
           (draw-minimap font tiles fog player))
 
       :dialog
         (let [npc  (state :dialog-npc)
               dlg  (npc :dialog)]
-          (draw-3d-view font tiles player level)
+          (draw-3d-view font tiles player level (world/level-tex-config level) textures)
           (draw-text-panel font dlg (string (npc :name) " says:"))
           (draw-minimap font tiles fog player))
 
       :inventory
         (do
-          (draw-3d-view font tiles player level)
+          (draw-3d-view font tiles player level (world/level-tex-config level) textures)
           (draw-text-panel font [] "INVENTORY")
           (draw-minimap font tiles fog player))
 
       # :explore and default
       (do
-        (draw-3d-view font tiles player level)
+        (draw-3d-view font tiles player level (world/level-tex-config level) textures)
         (let [level-display
               {0  "Solace, Abanasinia"      1  "Inn of the Last Home"
                2  "Tika's Room"             3  "Darken Wood"

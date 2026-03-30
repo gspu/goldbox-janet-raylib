@@ -6,6 +6,13 @@
 level 19
 spawn 7 2 south
 
+textures
+wall dungeon_stone
+floor stone_tile
+ceiling dungeon_stone
+door wood_plank
+endtextures
+
 map
 ################
 #..............#
