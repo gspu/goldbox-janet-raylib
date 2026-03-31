@@ -279,7 +279,7 @@
 
 (defn draw-active-char-overlay [font party active-idx]
   "Bottom-left corner of the 3D view — shows who is currently leading
-   (walking / talking). F1-F4 selects the active character."
+   (walking / talking). 1-4 selects the active character."
   (when (and (>= active-idx 0) (< active-idx (length party)))
     (let [ch    (party active-idx)
           alive (party/alive? ch)
@@ -291,8 +291,8 @@
       (fill bx by bw bh [0 0 0 170])
       (outline bx by bw bh (if alive COL-CYAN COL-RED))
 
-      # Key hint   F1·F2·F3·F4
-      (let [keys ["F1" "F2" "F3" "F4"]]
+      # Key hint   1·2·3·4
+      (let [keys ["1" "2" "3" "4"]]
         (for i 0 (min 4 (length party))
           (let [kx   (+ bx 4 (* i 44))
                 ky   (+ by 4)
@@ -481,7 +481,7 @@
 (defn draw-title [font mode level]
   (fill 0 TITLE-Y WIN-W TITLE-H COL-DARK)
   (outline 0 TITLE-Y WIN-W TITLE-H COL-SEP)
-  (let [hints "Arrows:Move  T:Talk  C:Rest  I:Inv  A:Attack  S:Spell  F:Flee  F10:Save/Load  ESC:Quit"]
+  (let [hints "Arrows:Move  T:Talk  C:Rest  I:Inv  A:Attack  S:Spell  F:Flee  1-4:Lead  F10:Save/Load  ESC:Quit"]
     (text font hints 8 8 COL-GRAY)))
 
 # ── Party stats bar ───────────────────────────────────────────
@@ -489,19 +489,47 @@
 (defn draw-party-bar [font party active-idx]
   (fill 0 STATS-Y WIN-W STATS-H COL-DARK)
   (outline 0 STATS-Y WIN-W STATS-H COL-SEP)
-  (let [slot-w (/ WIN-W (length party))]
+  (let [slot-w (/ WIN-W (length party))
+        fkeys  ["1" "2" "3" "4"]]
     (eachp [idx ch] party
-      (let [x     (math/floor (* idx slot-w))
-            alive (party/alive? ch)
+      (let [x      (math/floor (* idx slot-w))
+            sw     (math/floor slot-w)
+            alive  (party/alive? ch)
+            active (= idx active-idx)
             name-col (cond (not alive) COL-RED
-                            (= idx active-idx) COL-CYAN
-                            COL-WHITE)]
-        (when (= idx active-idx)
-          (fill x STATS-Y (math/floor slot-w) STATS-H [30 30 60 255]))
+                           active      COL-CYAN
+                           COL-WHITE)]
+
+        # Active slot: brighter background + left accent bar
+        (if active
+          (do
+            (fill x STATS-Y sw STATS-H [30 30 65 255])
+            (fill x STATS-Y 3 STATS-H COL-CYAN))
+          (fill x STATS-Y sw STATS-H COL-DARK))
+
+        # Slot separator
+        (when (> idx 0)
+          (line x STATS-Y x (+ STATS-Y STATS-H) COL-SEP))
+
+        # F-key badge — top-right of slot
+        (let [fk    (or (fkeys idx) "")
+              fk-x  (+ x sw -26)
+              fk-y  (+ STATS-Y 5)
+              fk-bg (if active [50 50 100 255] [20 20 40 200])
+              fk-col (if active COL-GOLD COL-GRAY)]
+          (fill fk-x fk-y 22 13 fk-bg)
+          (outline fk-x fk-y 22 13 (if active COL-GOLD COL-SEP))
+          (text font fk (+ fk-x 3) (+ fk-y 2) fk-col))
+
+        # "LEAD" tag on active character
+        (when active
+          (text font "LEAD" (+ x 8) (+ STATS-Y 58) COL-CYAN))
+
+        # Name + level
         (text font (ch :name) (+ x 8) (+ STATS-Y 6) name-col)
         (text font (string "Lv" (ch :level) "  HP:" (ch :hp) "/" (ch :hp-max))
               (+ x 8) (+ STATS-Y 22) COL-GRAY)
-        (draw-hp-bar (+ x 8) (+ STATS-Y 42) (- (math/floor slot-w) 16) 12
+        (draw-hp-bar (+ x 8) (+ STATS-Y 42) (- sw 16) 12
                      (ch :hp) (ch :hp-max))
         (when (not alive)
           (text font "DEAD" (+ x 8) (+ STATS-Y 58) COL-RED))))))
@@ -702,21 +730,18 @@
         (let [npc  (state :dialog-npc)
               dlg  (npc :dialog)]
           (draw-3d-view font tiles player level (world/level-tex-config level) textures)
-          (draw-active-char-overlay font par act-idx)
           (draw-text-panel font dlg (string (npc :name) " says:"))
           (draw-minimap font tiles fog player))
 
       :inventory
         (do
           (draw-3d-view font tiles player level (world/level-tex-config level) textures)
-          (draw-active-char-overlay font par act-idx)
           (draw-text-panel font [] "INVENTORY")
           (draw-minimap font tiles fog player))
 
       # :explore and default
       (do
         (draw-3d-view font tiles player level (world/level-tex-config level) textures)
-        (draw-active-char-overlay font par act-idx)
         (let [level-display
               {0  "Solace, Abanasinia"      1  "Inn of the Last Home"
                2  "Tika's Room"             3  "Darken Wood"

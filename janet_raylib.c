@@ -527,5 +527,9 @@ static void janet_raylib_register(JanetTable *env)
     janet_def(env, "SC_F2",        janet_wrap_integer(KEY_F2),        "party member 2");
     janet_def(env, "SC_F3",        janet_wrap_integer(KEY_F3),        "party member 3");
     janet_def(env, "SC_F4",        janet_wrap_integer(KEY_F4),        "party member 4");
+    janet_def(env, "SC_1",         janet_wrap_integer(KEY_ONE),       "select party member 1");
+    janet_def(env, "SC_2",         janet_wrap_integer(KEY_TWO),       "select party member 2");
+    janet_def(env, "SC_3",         janet_wrap_integer(KEY_THREE),     "select party member 3");
+    janet_def(env, "SC_4",         janet_wrap_integer(KEY_FOUR),      "select party member 4");
     janet_def(env, "SC_F10",       janet_wrap_integer(KEY_F10),       "save/load menu");
 }

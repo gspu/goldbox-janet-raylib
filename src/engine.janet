@@ -162,10 +162,10 @@
         (put state :running false)
 
       # Party member select
-      (= key rl/SC_F1) (do (put state :active-idx 0) (msg! state (string ((par 0) :name) " leads the party.")))
-      (= key rl/SC_F2) (do (put state :active-idx 1) (msg! state (string ((par 1) :name) " leads the party.")))
-      (= key rl/SC_F3) (do (put state :active-idx 2) (msg! state (string ((par 2) :name) " leads the party.")))
-      (= key rl/SC_F4) (do (put state :active-idx 3) (msg! state (string ((par 3) :name) " leads the party."))))))
+      (= key rl/SC_1) (do (put state :active-idx 0) (msg! state (string ((par 0) :name) " leads the party.")))
+      (= key rl/SC_2) (do (put state :active-idx 1) (msg! state (string ((par 1) :name) " leads the party.")))
+      (= key rl/SC_3) (do (put state :active-idx 2) (msg! state (string ((par 2) :name) " leads the party.")))
+      (= key rl/SC_4) (do (put state :active-idx 3) (msg! state (string ((par 3) :name) " leads the party."))))))
 
 # ── Combat handlers ───────────────────────────────────────────
 
@@ -232,10 +232,10 @@
   (cond
     (or (= key rl/SC_I) (= key rl/SC_ESCAPE))
       (set-mode! state :explore)
-    (= key rl/SC_F1) (put state :active-idx 0)
-    (= key rl/SC_F2) (put state :active-idx 1)
-    (= key rl/SC_F3) (put state :active-idx 2)
-    (= key rl/SC_F4) (put state :active-idx 3)))
+    (= key rl/SC_1) (put state :active-idx 0)
+    (= key rl/SC_2) (put state :active-idx 1)
+    (= key rl/SC_3) (put state :active-idx 2)
+    (= key rl/SC_4) (put state :active-idx 3)))
 
 # ── Save/Load menu handler ────────────────────────────────────
 # Key codes for printable characters used in name input.
