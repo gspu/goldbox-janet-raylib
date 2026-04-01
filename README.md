@@ -94,7 +94,7 @@ build/
 | `C` | Rest (restore HP) |
 | `I` | Inventory screen |
 | `Enter` | Interact (door, stairs, port, chest) |
-| `F1`–`F4` | Select active party member |
+| `1`–`4` | Select active party member |
 | `F10` | Open Save/Load menu |
 | `ESC` | Quit game |
 

@@ -59,7 +59,7 @@ static const int WATCHED_KEYS[] = {
     KEY_FIVE, KEY_SIX, KEY_SEVEN, KEY_EIGHT, KEY_NINE,
     KEY_MINUS, KEY_PERIOD, KEY_APOSTROPHE,
     /* Function keys */
-    KEY_F1, KEY_F2, KEY_F3, KEY_F4, KEY_F10,
+    KEY_F10,
     0
 };
 
@@ -523,10 +523,7 @@ static void janet_raylib_register(JanetTable *env)
     janet_def(env, "SC_F",         janet_wrap_integer(KEY_F),         "flee");
     janet_def(env, "SC_L",         janet_wrap_integer(KEY_L),         "load");
     janet_def(env, "SC_N",         janet_wrap_integer(KEY_N),         "new game");
-    janet_def(env, "SC_F1",        janet_wrap_integer(KEY_F1),        "party member 1");
-    janet_def(env, "SC_F2",        janet_wrap_integer(KEY_F2),        "party member 2");
-    janet_def(env, "SC_F3",        janet_wrap_integer(KEY_F3),        "party member 3");
-    janet_def(env, "SC_F4",        janet_wrap_integer(KEY_F4),        "party member 4");
+
     janet_def(env, "SC_1",         janet_wrap_integer(KEY_ONE),       "select party member 1");
     janet_def(env, "SC_2",         janet_wrap_integer(KEY_TWO),       "select party member 2");
     janet_def(env, "SC_3",         janet_wrap_integer(KEY_THREE),     "select party member 3");
