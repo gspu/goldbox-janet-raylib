@@ -17,38 +17,17 @@
     :level  3
     :alive  true
     :spells spells          # list of spell names this character can cast
-    :active false})
-
-(defn make-party []
-  [(make-char "Tanis"       "Half-Elf" "Ranger"  16 17 15 12 13 16
-              17 5 24 [])
-   (make-char "Raistlin"    "Human"    "Wizard"   9 17 10 18  8 11
-              19 5 10 ["Magic Missile" "Sleep" "Mirror Image"])
-   (make-char "Goldmoon"    "Human"    "Cleric"  14 14 16 12 18 16
-              18 4 20 ["Cure Light Wounds" "Hold Person" "Bless"])
-   (make-char "Tasslehoff"  "Kender"   "Thief"   11 19 13 15 10 17
-              19 6 16 [])])
+})
 
 # ── Accessors ─────────────────────────────────────────────────
 
 (defn alive? [ch]    (ch :alive))
 (defn dead?  [ch]    (not (ch :alive)))
-(defn hp     [ch]    (ch :hp))
-(defn hp-max [ch]    (ch :hp-max))
 
 (defn living-members [party]
   (filter alive? party))
 
-(defn active-member [party]
-  (or (find |($ :active) party)
-      (first (living-members party))))
 
-(defn set-active! [party idx]
-  (each ch party (put ch :active false))
-  (when (and (>= idx 0) (< idx (length party)))
-    (let [ch (party idx)]
-      (when (alive? ch)
-        (put ch :active true)))))
 
 # ── Damage & healing ──────────────────────────────────────────
 
@@ -153,15 +132,25 @@
         spells (or (CLASS-SPELLS class) [])]
     (make-char name race class st dx cn it ws ch thac0 ac (max 4 hp-max) spells)))
 
+# Default hero templates — used as pre-filled names/races/classes in
+# character creation. The player can overwrite any field; these are
+# just a convenient starting point matching the Dragonlance heroes.
+(def HERO-TEMPLATES
+  [{:name "Tanis"      :race "Half-Elf" :race-idx 1 :class "Ranger" :class-idx 1}
+   {:name "Raistlin"   :race "Human"    :race-idx 0 :class "Wizard" :class-idx 2}
+   {:name "Goldmoon"   :race "Human"    :race-idx 0 :class "Cleric" :class-idx 3}
+   {:name "Tasslehoff" :race "Kender"   :race-idx 4 :class "Thief"  :class-idx 4}])
+
 (defn make-blank-creation []
-  "Return blank creation state for all 4 party members."
+  "Return creation slots pre-filled with the Dragonlance hero templates.
+   The player can change name, race, class, or reroll stats freely."
   (def slots (array/new 4))
   (for i 0 4
-    (def race (RACES 0))
+    (def tpl (HERO-TEMPLATES i))
+    (def race (tpl :race))
     (array/push slots
-      @{:name     ""
-        :race-idx 0
-        :class-idx 0
-        :stats    (roll-stats race)
-        :done     false}))
+      @{:name      (tpl :name)
+        :race-idx  (tpl :race-idx)
+        :class-idx (tpl :class-idx)
+        :stats     (roll-stats race)}))
   slots)

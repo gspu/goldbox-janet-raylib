@@ -313,16 +313,6 @@ static Janet cfun_unload_texture(int32_t argc, Janet *argv)
     return janet_wrap_nil();
 }
 
-/* (rl/texture-size tex) -> [w h] */
-static Janet cfun_texture_size(int32_t argc, Janet *argv)
-{
-    janet_fixarity(argc, 1);
-    JRTexture *jt = janet_getabstract(argv, 0, &janet_rl_texture_type);
-    Janet *tup = janet_tuple_begin(2);
-    tup[0] = janet_wrap_integer(jt->gpu_tex.width);
-    tup[1] = janet_wrap_integer(jt->gpu_tex.height);
-    return janet_wrap_tuple(janet_tuple_end(tup));
-}
 
 /* (rl/draw-texture-strip tex u dst-x dst-y dst-h r g b) -> nil
    Draws one pixel-wide vertical strip at texture column u [0,1) scaled
@@ -490,7 +480,6 @@ static const JanetReg cfuns[] = {
     {"draw-text",    cfun_draw_text,    "(rl/draw-text font text x y r g b a)"},
     {"load-texture",       cfun_load_texture,       "(rl/load-texture path)"},
     {"unload-texture",     cfun_unload_texture,     "(rl/unload-texture tex)"},
-    {"texture-size",       cfun_texture_size,       "(rl/texture-size tex)"},
     {"draw-texture-strip", cfun_draw_texture_strip, "(rl/draw-texture-strip tex u x y h r g b)"},
     {"draw-floor-ceiling", cfun_draw_floor_ceiling, "(rl/draw-floor-ceiling ft ct px py dx dy plx ply vx vy vw vh)"},
     {"fill-diamond",       cfun_fill_diamond,       "(rl/fill-diamond cx cy hw hh)"},

@@ -22,8 +22,7 @@
 # ── Initial game state ────────────────────────────────────────
 
 (defn make-state []
-  (let [w (world/make-world)
-        p (party/make-party)]
+  (let [w (world/make-world)]
     (world/reveal-fog! w)
     @{:mode        :startscreen
       :start-selected 0
@@ -32,13 +31,12 @@
       :cc-member   0      # which member we're editing (0-3)
       :cc-field    0      # 0=name 1=race 2=class (stats auto-rolled)
       :world       w
-      :party       p
+      :party       @[]
       :active-idx  0
       :combat      nil
       :dialog-npc  nil
       :messages    @["The War of the Lance has begun. Takhisis stirs."
                      "Your party stands in Solace. Move with arrow keys."]
-      :tick        0
       :running     true
       :save-selected 0
       :save-naming    false
@@ -394,7 +392,7 @@
             (map (fn [sl]
                    (let [race  (party/RACES  (sl :race-idx))
                          class (party/CLASSES (sl :class-idx))
-                         nm    (if (= (sl :name) "") (string race " " class) (sl :name))]
+                         nm    (if (pos? (length (sl :name))) (sl :name) (string race " " class))]
                      (party/make-custom-char nm race class (sl :stats))))
                  slots))
           (put state :party (array/slice new-party))
@@ -483,5 +481,4 @@
         (= t :quit)    (do (put state :running false) (set running false))
         (= t :keydown) (dispatch-key! state (ev :key))))
     (set ev (rl/poll-events)))
-  (put state :tick (+ (state :tick) 1))
   running)

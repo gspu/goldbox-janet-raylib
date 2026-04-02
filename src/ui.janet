@@ -277,42 +277,6 @@
   # Compass overlay — drawn after walls so it's always on top
   (draw-compass font (player :dir)))
 
-(defn draw-active-char-overlay [font party active-idx]
-  "Bottom-left corner of the 3D view — shows who is currently leading
-   (walking / talking). 1-4 selects the active character."
-  (when (and (>= active-idx 0) (< active-idx (length party)))
-    (let [ch    (party active-idx)
-          alive (party/alive? ch)
-          bx    (+ VIEW-X 6)
-          by    (- (+ PANEL-Y PANEL-H) 54)
-          bw    180
-          bh    50]
-      # Semi-transparent backdrop
-      (fill bx by bw bh [0 0 0 170])
-      (outline bx by bw bh (if alive COL-CYAN COL-RED))
-
-      # Key hint   1·2·3·4
-      (let [keys ["1" "2" "3" "4"]]
-        (for i 0 (min 4 (length party))
-          (let [kx   (+ bx 4 (* i 44))
-                ky   (+ by 4)
-                active (= i active-idx)
-                kc   (if active COL-GOLD COL-GRAY)]
-            (when active
-              (fill kx ky 40 12 [40 35 8 200]))
-            (text font (keys i) kx ky kc))))
-
-      # Character name + class
-      (let [name-col (if alive COL-CYAN COL-RED)
-            info     (string (ch :name) "  " (ch :class))]
-        (text font info (+ bx 4) (+ by 19) name-col))
-
-      # HP bar
-      (draw-hp-bar (+ bx 4) (+ by 36) (- bw 8) 9
-                   (ch :hp) (ch :hp-max))
-      # HP numbers
-      (text font (string (ch :hp) "/" (ch :hp-max))
-            (+ bx 4) (+ by 36) COL-DARK))))
 
 # ── Isometric combat view ────────────────────────────────────
 #
@@ -717,14 +681,13 @@
   (text font "CHARACTER  CREATION" 380 40 COL-GOLD)
 
   # ── Member progress tabs ─────────────────────────────────────
-  (def tab-names ["1. Hero" "2. Hero" "3. Hero" "4. Hero"])
   (def tab-w 180)
   (for i 0 4
     (let [tx  (+ 32 (* i (+ tab-w 8)))
           ty  68
           act (= i cur-mem)
           sl  (slots i)
-          nm  (if (not= (sl :name) "") (sl :name) (tab-names i))
+          nm  (sl :name)
           bg  (if act [35 30 10 255] [18 15 8 255])
           brd (if act COL-GOLD COL-SEP)
           tc  (if act COL-GOLD COL-GRAY)]
@@ -820,7 +783,7 @@
           brd  (if act COL-GOLD COL-SEP)
           rn   (party/RACES  (s :race-idx))
           cn2  (party/CLASSES (s :class-idx))
-          nm   (if (not= (s :name) "") (s :name) (string "Hero " (+ i 1)))
+          nm   (if (pos? (length (s :name))) (s :name) (string (+ i 1) ". Hero"))
           [st2 dx2 cn3 it2 ws2 ch2] (s :stats)]
       (when act
         (fill (+ rx 8) sy2 (- rw 16) 122 bg))

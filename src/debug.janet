@@ -97,7 +97,7 @@
 # ── Step 9: Present / ticks ───────────────────────────────────
 (print "[34] Calling rl/present...")
 (rl/present)
-(print "[35] rl/present OK. ticks=" (rl/ticks))
+(print "[35] rl/present OK")
 
 # ── Step 10: Event poll (just drain immediately) ──────────────
 (print "[36] Testing rl/poll-events...")
@@ -111,11 +111,8 @@
 # ── Teardown ──────────────────────────────────────────────────
 (print "[38] Closing font...")
 (rl/close-font font)
-(print "[39] Destroying renderer...")
-(print "[40] Destroying window...")
-(rl/close-window)
 (print "[39] Closing window...")
 (rl/close-window)
 
 (print)
-(print "=== All 41 steps passed — raylib backend is functional ===")
+(print "=== All steps passed — raylib backend is functional ===")
