@@ -27,6 +27,10 @@
     (world/reveal-fog! w)
     @{:mode        :startscreen
       :start-selected 0
+      # character creation state
+      :cc-slots    nil    # array of 4 creation slots
+      :cc-member   0      # which member we're editing (0-3)
+      :cc-field    0      # 0=name 1=race 2=class (stats auto-rolled)
       :world       w
       :party       p
       :active-idx  0
@@ -334,9 +338,10 @@
       # Direct shortcut — New Game
       (= key rl/SC_N)
         (do (put state :start-selected 0)
-            (set-mode! state :explore)
-            (msg! state "The War of the Lance has begun. Takhisis stirs.")
-            (msg! state "Your party stands in Solace. Move with arrow keys."))
+            (put state :cc-slots (party/make-blank-creation))
+            (put state :cc-member 0)
+            (put state :cc-field 0)
+            (set-mode! state :charcreate))
 
       # Direct shortcut — Load Game
       (= key rl/SC_L)
@@ -350,9 +355,10 @@
       # Enter — confirm whichever button is highlighted
       (= key rl/SC_RETURN)
         (case sel
-          0 (do (set-mode! state :explore)
-                (msg! state "The War of the Lance has begun. Takhisis stirs.")
-                (msg! state "Your party stands in Solace. Move with arrow keys."))
+          0 (do (put state :cc-slots (party/make-blank-creation))
+                (put state :cc-member 0)
+                (put state :cc-field 0)
+                (set-mode! state :charcreate))
           1 (do (put state :from-start true)
                 (put state :save-selected 0)
                 (put state :save-naming false)
@@ -363,12 +369,101 @@
       (= key rl/SC_ESCAPE)
         (put state :running false))))
 
+# ── Character creation handler ────────────────────────────────
+# Modes: field 0 = name input, field 1 = race, field 2 = class
+# R = reroll stats at any time for the current member
+# Tab / Enter = advance to next field / member
+# ESC = back to start screen
+
+(defn- cc-slot [state] ((state :cc-slots) (state :cc-member)))
+
+(defn- cc-advance! [state]
+  "Move to next field; when all 4 members are done, build the party and start."
+  (let [field (state :cc-field)
+        mem   (state :cc-member)]
+    (if (< field 2)
+      (put state :cc-field (+ field 1))
+      # Finished this member
+      (if (< mem 3)
+        (do (put state :cc-member (+ mem 1))
+            (put state :cc-field 0))
+        # All 4 done — build party and go!
+        (do
+          (def slots (state :cc-slots))
+          (def new-party
+            (map (fn [sl]
+                   (let [race  (party/RACES  (sl :race-idx))
+                         class (party/CLASSES (sl :class-idx))
+                         nm    (if (= (sl :name) "") (string race " " class) (sl :name))]
+                     (party/make-custom-char nm race class (sl :stats))))
+                 slots))
+          (put state :party (array/slice new-party))
+          (msg! state "The War of the Lance has begun. Takhisis stirs.")
+          (msg! state "Your party stands in Solace. Move with arrow keys.")
+          (set-mode! state :explore))))))
+
+(defn- handle-charcreate [state key]
+  (def sl  (cc-slot state))
+  (def field (state :cc-field))
+
+  (cond
+    # ESC — back to start screen
+    (= key rl/SC_ESCAPE)
+      (set-mode! state :startscreen)
+
+    # R — reroll stats for current member
+    (= key rl/SC_R)
+      (let [race-idx (sl :race-idx)
+            race     (party/RACES race-idx)]
+        (put sl :stats (party/roll-stats race)))
+
+    # Tab or Enter — advance field
+    (or (= key rl/SC_TAB) (= key rl/SC_RETURN))
+      (cc-advance! state)
+
+    # ── Name input (field 0) ──────────────────────────────────
+    (= field 0)
+      (cond
+        (= key rl/SC_BACKSPACE)
+          (let [n (sl :name)]
+            (when (> (length n) 0)
+              (put sl :name (string/slice n 0 (- (length n) 1)))))
+        # Printable chars — reuse the same helper from savemenu
+        (printable-char key)
+          (when (< (length (sl :name)) 16)
+            (put sl :name (string (sl :name) (printable-char key)))))
+
+    # ── Race selection (field 1) ─────────────────────────────
+    (= field 1)
+      (cond
+        (or (= key rl/SC_UP) (= key rl/SC_LEFT))
+          (let [n (length party/RACES)
+                i (% (+ (sl :race-idx) n -1) n)]
+            (put sl :race-idx i)
+            (put sl :stats (party/roll-stats (party/RACES i))))
+        (or (= key rl/SC_DOWN) (= key rl/SC_RIGHT))
+          (let [n (length party/RACES)
+                i (% (+ (sl :race-idx) 1) n)]
+            (put sl :race-idx i)
+            (put sl :stats (party/roll-stats (party/RACES i)))))
+
+    # ── Class selection (field 2) ────────────────────────────
+    (= field 2)
+      (cond
+        (or (= key rl/SC_UP) (= key rl/SC_LEFT))
+          (let [n (length party/CLASSES)]
+            (put sl :class-idx (% (+ (sl :class-idx) n -1) n)))
+        (or (= key rl/SC_DOWN) (= key rl/SC_RIGHT))
+          (let [n (length party/CLASSES)]
+            (put sl :class-idx (% (+ (sl :class-idx) 1) n))))))
+
 # ── Top-level event dispatcher ────────────────────────────────
 
 (defn dispatch-key! [state key]
   "Route a keydown scancode to the correct mode handler."
   (case (state :mode)
     :startscreen (handle-startscreen state key)
+    :charcreate  (handle-charcreate  state key)
     :explore   (handle-explore   state key)
     :combat    (handle-combat    state key)
     :dialog    (handle-dialog    state key)

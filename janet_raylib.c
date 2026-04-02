@@ -49,11 +49,12 @@ static int evq_pop(RLEvent *out)
 static const int WATCHED_KEYS[] = {
     KEY_UP, KEY_DOWN, KEY_LEFT, KEY_RIGHT,
     KEY_ENTER, KEY_ESCAPE, KEY_SPACE, KEY_BACKSPACE, KEY_DELETE,
-    KEY_T, KEY_C, KEY_I, KEY_A, KEY_S, KEY_F, KEY_L,
+    KEY_T, KEY_C, KEY_I, KEY_A, KEY_S, KEY_F, KEY_L, KEY_R,
     /* All letters for save-game name input */
     KEY_B, KEY_D, KEY_E, KEY_G, KEY_H, KEY_J, KEY_K,
-    KEY_M, KEY_N, KEY_O, KEY_P, KEY_Q, KEY_R, KEY_U,
+    KEY_M, KEY_N, KEY_O, KEY_P, KEY_Q, KEY_U,
     KEY_V, KEY_W, KEY_X, KEY_Y, KEY_Z,
+    KEY_TAB,
     /* Digits and punctuation */
     KEY_ZERO, KEY_ONE, KEY_TWO, KEY_THREE, KEY_FOUR,
     KEY_FIVE, KEY_SIX, KEY_SEVEN, KEY_EIGHT, KEY_NINE,
@@ -523,10 +524,11 @@ static void janet_raylib_register(JanetTable *env)
     janet_def(env, "SC_F",         janet_wrap_integer(KEY_F),         "flee");
     janet_def(env, "SC_L",         janet_wrap_integer(KEY_L),         "load");
     janet_def(env, "SC_N",         janet_wrap_integer(KEY_N),         "new game");
-
     janet_def(env, "SC_1",         janet_wrap_integer(KEY_ONE),       "select party member 1");
     janet_def(env, "SC_2",         janet_wrap_integer(KEY_TWO),       "select party member 2");
     janet_def(env, "SC_3",         janet_wrap_integer(KEY_THREE),     "select party member 3");
     janet_def(env, "SC_4",         janet_wrap_integer(KEY_FOUR),      "select party member 4");
+    janet_def(env, "SC_R",         janet_wrap_integer(KEY_R),         "reroll stats");
+    janet_def(env, "SC_TAB",       janet_wrap_integer(KEY_TAB),       "next field");
     janet_def(env, "SC_F10",       janet_wrap_integer(KEY_F10),       "save/load menu");
 }

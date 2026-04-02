@@ -78,8 +78,9 @@ exe: native
 	$(JPM) build
 	# Restore dev .so so make run still works
 	$(MAKE) native
-	# Copy map data and strip build artefacts
+	# Copy map data and textures, strip build artefacts
 	cp -r maps build/maps
+	cp -r textures build/textures
 	rm -f build/*.o build/*.c build/*.meta.janet build/*.a
 	# Patch RPATH so the binary finds janet_raylib.so next to itself
 	@if command -v patchelf > /dev/null 2>&1; then \
@@ -93,7 +94,7 @@ exe: native
 	@ls -lh build/
 	@echo ""
 	@echo "Run:    cd build && ./goldbox"
-	@echo "Deploy: copy the entire build/ directory."
+	@echo "Deploy: copy the entire build/ directory  (goldbox + .so + maps/ + textures/)"
 
 # ── Clean ─────────────────────────────────────────────────────
 

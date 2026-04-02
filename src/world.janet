@@ -192,11 +192,12 @@
 (var *cache* @{})
 
 (defn- find-map-dir []
-  (var found "../maps")
-  (each c ["../maps" "./maps" (string (os/cwd) "/maps")]
-    (when (and (= found "../maps") (os/stat c))
+  "Locate maps/: ./maps (build layout) or ../maps (dev layout from src/)."
+  (var found nil)
+  (each c ["./maps" "../maps" (string (os/cwd) "/maps")]
+    (when (and (not found) (os/stat c))
       (set found c)))
-  found)
+  (or found "../maps"))
 
 (defn- load-level [level-num]
   (if (get *cache* level-num)

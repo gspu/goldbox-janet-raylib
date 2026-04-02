@@ -20,12 +20,12 @@
   found)
 
 (defn- find-tex-dir []
-  "Locate the textures/ folder relative to the working directory."
-  (var found "textures")
-  (each candidate ["textures" "../textures" (string (os/cwd) "/textures")]
-    (when (and (= found "textures") (os/stat candidate))
+  "Locate textures/: ./textures (build layout) or ../textures (dev layout from src/)."
+  (var found nil)
+  (each candidate ["./textures" "textures" "../textures" (string (os/cwd) "/textures")]
+    (when (and (not found) (os/stat candidate))
       (set found candidate)))
-  found)
+  (or found "textures"))
 
 (defn- load-textures []
   "Auto-discover and load every .png in the textures/ folder.

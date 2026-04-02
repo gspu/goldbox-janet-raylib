@@ -97,3 +97,71 @@
     (<= stat 15)  1
     (<= stat 17)  2
     3))
+
+# ── Character creation ────────────────────────────────────────
+# Available races and classes with their stat bonuses and spell lists.
+
+(def RACES
+  ["Human" "Half-Elf" "Elf" "Dwarf" "Kender" "Gnome"])
+
+(def CLASSES
+  ["Fighter" "Ranger" "Wizard" "Cleric" "Thief" "Paladin"])
+
+# Racial stat bonuses: [str dex con int wis cha]
+(def RACE-BONUSES
+  {"Human"    [0  0  0  0  0  0]
+   "Half-Elf" [0  1  0  1  0  1]
+   "Elf"      [0  2 -1  1  0  1]
+   "Dwarf"    [1  0  2 -1  0 -1]
+   "Kender"   [-1 2  0  1  0  2]
+   "Gnome"    [0  1  1  2  0 -1]})
+
+# Class spell lists
+(def CLASS-SPELLS
+  {"Fighter"  []
+   "Ranger"   []
+   "Wizard"   ["Magic Missile" "Sleep" "Mirror Image"]
+   "Cleric"   ["Cure Light Wounds" "Hold Person" "Bless"]
+   "Thief"    []
+   "Paladin"  ["Cure Light Wounds" "Bless"]})
+
+# Class base THAC0 and AC
+(def CLASS-BASE
+  {"Fighter"  [18 6]
+   "Ranger"   [17 5]
+   "Wizard"   [19 5]
+   "Cleric"   [18 4]
+   "Thief"    [19 6]
+   "Paladin"  [17 4]})
+
+(defn roll-stats [race]
+  "Roll 4d6-drop-lowest for each stat, then apply racial bonuses."
+  (defn roll4d6 []
+    (let [rolls [(rng/d6) (rng/d6) (rng/d6) (rng/d6)]
+          total (reduce + 0 rolls)
+          mn    (min ;rolls)]
+      (- total mn)))
+  (let [base  [(roll4d6) (roll4d6) (roll4d6) (roll4d6) (roll4d6) (roll4d6)]
+        bonus (or (RACE-BONUSES race) [0 0 0 0 0 0])]
+    (map (fn [b bns] (max 3 (min 18 (+ b bns)))) base bonus)))
+
+(defn make-custom-char [name race class stats]
+  "Build a character from creation choices."
+  (let [[st dx cn it ws ch] stats
+        [thac0 ac] (or (CLASS-BASE class) [18 6])
+        hp-max (+ (rng/d8) (stat-mod cn))
+        spells (or (CLASS-SPELLS class) [])]
+    (make-char name race class st dx cn it ws ch thac0 ac (max 4 hp-max) spells)))
+
+(defn make-blank-creation []
+  "Return blank creation state for all 4 party members."
+  (def slots (array/new 4))
+  (for i 0 4
+    (def race (RACES 0))
+    (array/push slots
+      @{:name     ""
+        :race-idx 0
+        :class-idx 0
+        :stats    (roll-stats race)
+        :done     false}))
+  slots)

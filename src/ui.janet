@@ -691,6 +691,166 @@
   # Bottom border line above hint
   (line 32 (- WIN-H 56) (- WIN-W 32) (- WIN-H 56) COL-SEP))
 
+# ── Character creation screen ────────────────────────────────
+#
+# Gold Box style: one member at a time, three steps:
+#   Step 0 — Name  (type freely, up to 16 chars)
+#   Step 1 — Race  (arrow keys cycle through options)
+#   Step 2 — Class (arrow keys cycle through options)
+#
+# Stats are auto-rolled (4d6-drop-lowest) and shown read-only.
+# R rerolls at any time.  Tab / Enter advances.  ESC cancels.
+
+(defn draw-charcreate [font state]
+  (def slots   (state :cc-slots))
+  (def cur-mem (state :cc-member))
+  (def cur-fld (state :cc-field))
+
+  # Full dark backdrop
+  (fill 0 0 WIN-W WIN-H [8 6 4 255])
+  (outline 16 16 (- WIN-W 32) (- WIN-H 32) COL-GOLD)
+  (outline 20 20 (- WIN-W 40) (- WIN-H 40) COL-SEP)
+
+  # ── Title ────────────────────────────────────────────────────
+  (fill 32 32 (- WIN-W 64) 30 [14 11 6 255])
+  (outline 32 32 (- WIN-W 64) 30 COL-GOLD)
+  (text font "CHARACTER  CREATION" 380 40 COL-GOLD)
+
+  # ── Member progress tabs ─────────────────────────────────────
+  (def tab-names ["1. Hero" "2. Hero" "3. Hero" "4. Hero"])
+  (def tab-w 180)
+  (for i 0 4
+    (let [tx  (+ 32 (* i (+ tab-w 8)))
+          ty  68
+          act (= i cur-mem)
+          sl  (slots i)
+          nm  (if (not= (sl :name) "") (sl :name) (tab-names i))
+          bg  (if act [35 30 10 255] [18 15 8 255])
+          brd (if act COL-GOLD COL-SEP)
+          tc  (if act COL-GOLD COL-GRAY)]
+      (fill tx ty tab-w 22 bg)
+      (outline tx ty tab-w 22 brd)
+      (text font nm (+ tx 8) (+ ty 5) tc)))
+
+  # ── Current member panel ─────────────────────────────────────
+  (def sl  (slots cur-mem))
+  (def race-name  (party/RACES  (sl :race-idx)))
+  (def class-name (party/CLASSES (sl :class-idx)))
+  (def [st dx cn it ws ch] (sl :stats))
+
+  (def px 40)  (def py 105)
+  (def pw 460) (def ph 580)
+  (fill px py pw ph [14 12 8 255])
+  (outline px py pw ph COL-SEP)
+
+  # Field labels & values
+  (defn field-row [label value row active]
+    (let [fy    (+ py 20 (* row 52))
+          bg    (if active [30 25 8 255] [0 0 0 0])
+          vcol  (if active COL-GOLD COL-WHITE)
+          lcol  COL-GRAY]
+      (when active
+        (fill (+ px 8) (- fy 4) (- pw 16) 44 bg)
+        (outline (+ px 8) (- fy 4) (- pw 16) 44 COL-GOLD))
+      (text font label (+ px 16) fy lcol)
+      (text font value (+ px 160) fy vcol)
+      # Arrow hints for race/class
+      (when (and active (> row 0))
+        (text font "< >" (+ px (- pw 50)) fy COL-GRAY))))
+
+  # Name field
+  (let [active (= cur-fld 0)
+        display (string (sl :name) (if active "_" ""))]
+    (field-row "NAME:" display 0 active))
+
+  # Race field
+  (field-row "RACE:" race-name 1 (= cur-fld 1))
+
+  # Class field
+  (field-row "CLASS:" class-name 2 (= cur-fld 2))
+
+  # Stats block
+  (let [sy  (+ py 180)
+        sx  (+ px 16)
+        labels ["STR" "DEX" "CON" "INT" "WIS" "CHA"]
+        vals   [st dx cn it ws ch]]
+    (fill sx (- sy 4) (- pw 32) 110 [10 10 14 200])
+    (outline sx (- sy 4) (- pw 32) 110 COL-SEP)
+    (text font "ABILITY SCORES:" sx (- sy 2) COL-CYAN)
+    (for i 0 6
+      (let [col-x (+ sx (* (% i 3) 140))
+            row-y (+ sy 18 (* (math/floor (/ i 3)) 36))
+            v     (vals i)
+            vc    (cond (>= v 16) COL-GOLD
+                        (>= v 13) COL-WHITE
+                        (<= v  7) COL-RED
+                        COL-GRAY)]
+        (text font (string (labels i) ":") col-x row-y COL-GRAY)
+        (text font (string v) (+ col-x 44) row-y vc))))
+
+  # Derived stats
+  (let [dy (+ py 310)
+        [thac0 ac] (or (party/CLASS-BASE class-name) [18 6])
+        cn-mod     (party/stat-mod cn)
+        hp-range   (string (max 4 (+ 1 cn-mod)) "-" (max 4 (+ 8 cn-mod)))
+        spells     (party/CLASS-SPELLS class-name)]
+    (fill (+ px 8) dy (- pw 16) 90 [10 10 16 180])
+    (outline (+ px 8) dy (- pw 16) 90 COL-SEP)
+    (text font (string "THAC0: " thac0)           (+ px 16) (+ dy 8)  COL-GRAY)
+    (text font (string "AC:    " ac)               (+ px 16) (+ dy 26) COL-GRAY)
+    (text font (string "HP:    " hp-range)         (+ px 16) (+ dy 44) COL-GRAY)
+    (text font (string "SPELLS: " (if (pos? (length spells))
+                                    (string/join spells ", ")
+                                    "None"))
+          (+ px 16) (+ dy 64) COL-GRAY))
+
+  # ── Right panel: all 4 members summary ───────────────────────
+  (def rx 520) (def ry 105)
+  (def rw 480) (def rh 580)
+  (fill rx ry rw rh [10 9 6 255])
+  (outline rx ry rw rh COL-SEP)
+  (text font "PARTY ROSTER" (+ rx 160) (+ ry 10) COL-GOLD)
+  (line rx (+ ry 28) (+ rx rw) (+ ry 28) COL-SEP)
+
+  (for i 0 4
+    (let [s    (slots i)
+          sy2  (+ ry 38 (* i 130))
+          act  (= i cur-mem)
+          bg   (if act [20 18 8 255] [0 0 0 0])
+          brd  (if act COL-GOLD COL-SEP)
+          rn   (party/RACES  (s :race-idx))
+          cn2  (party/CLASSES (s :class-idx))
+          nm   (if (not= (s :name) "") (s :name) (string "Hero " (+ i 1)))
+          [st2 dx2 cn3 it2 ws2 ch2] (s :stats)]
+      (when act
+        (fill (+ rx 8) sy2 (- rw 16) 122 bg))
+      (outline (+ rx 8) sy2 (- rw 16) 122 brd)
+      (text font (string (+ i 1) ". " nm) (+ rx 16) (+ sy2 8)
+            (if act COL-GOLD COL-WHITE))
+      (text font (string rn " " cn2) (+ rx 16) (+ sy2 26) COL-GRAY)
+      (text font (string "STR:" st2 " DEX:" dx2 " CON:" cn3)
+            (+ rx 16) (+ sy2 44) COL-GRAY)
+      (text font (string "INT:" it2 " WIS:" ws2 " CHA:" ch2)
+            (+ rx 16) (+ sy2 62) COL-GRAY)
+      # completion tick
+      (when (and (not= (s :name) "") (> (length (s :name)) 0))
+        (text font "OK" (+ rx rw -36) (+ sy2 8) COL-GREEN))))
+
+  # ── Footer hints ─────────────────────────────────────────────
+  (fill 0 (- WIN-H 52) WIN-W 52 [8 6 4 220])
+  (line 32 (- WIN-H 52) (- WIN-W 32) (- WIN-H 52) COL-SEP)
+  (let [step-hint (case cur-fld
+                    0 "Type name  (max 16 chars)"
+                    1 "Arrows: change race     (auto-rerolls stats)"
+                    2 "Arrows: change class"
+                    "")
+        nav-hint  (if (and (= cur-mem 3) (= cur-fld 2))
+                    "ENTER: Finish & start game"
+                    "ENTER / TAB: next step")]
+    (text font step-hint 40 (- WIN-H 42) COL-GRAY)
+    (text font (string nav-hint "    R: reroll stats    ESC: cancel")
+          40 (- WIN-H 22) COL-GRAY)))
+
 # ── Full-frame render ─────────────────────────────────────────
 
 (defn render-frame [font state textures]
@@ -713,6 +873,10 @@
       (do
         (draw-startscreen font (or (state :start-selected) 0))
         (rl/present))
+      (if (= mode :charcreate)
+        (do
+          (draw-charcreate font state)
+          (rl/present))
       (do
         # Panels
         (draw-title font mode level)
@@ -774,4 +938,4 @@
     (when (= mode :savemenu)
       (draw-savemenu font state))
 
-    (rl/present)))))
+    (rl/present))))))
