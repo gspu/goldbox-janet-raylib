@@ -285,8 +285,11 @@ static int rl_texture_gc(void *p, size_t s)
 }
 
 static const JanetAbstractType janet_rl_texture_type = {
-    "raylib/texture", rl_texture_gc, NULL, NULL, NULL,
-    NULL, NULL, NULL, NULL, NULL, NULL, NULL
+    "raylib/texture",
+    rl_texture_gc,
+    NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL,
+    NULL, NULL, NULL, NULL,
+    NULL   /* gcperthread (Janet 1.41+) */
 };
 
 /* (rl/load-texture path) -> texture-handle or nil on failure */
