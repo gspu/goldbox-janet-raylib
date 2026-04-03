@@ -3,21 +3,21 @@
 
 # ── Character templates (Heroes of the Lance) ─────────────────
 
-(defn- make-char [name race class str dex con int wis cha thac0 ac hp-max spells]
-  @{:name   name
-    :race   race
-    :class  class
-    :str    str   :dex dex   :con con
-    :int    int   :wis wis   :cha cha
-    :thac0  thac0
-    :ac     ac
-    :hp     hp-max
-    :hp-max hp-max
-    :xp     0
-    :level  3
-    :alive  true
-    :spells spells          # list of spell names this character can cast
-})
+(defn make-char [name race class str dex con int wis cha thac0 ac hp-max spells]
+  @{:name      name
+    :race      race
+    :class     class
+    :str       str   :dex dex   :con con
+    :int       int   :wis wis   :cha cha
+    :thac0     thac0
+    :ac        ac
+    :hp        hp-max
+    :hp-max    hp-max
+    :xp        0
+    :level     3
+    :alive     true
+    :spells    spells
+    :active    false})
 
 # ── Accessors ─────────────────────────────────────────────────
 

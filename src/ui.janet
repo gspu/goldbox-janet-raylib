@@ -888,7 +888,7 @@
                           (string "Facing:   " dir-name)
                           (string "Position: " (player :x) ", " (player :y))
                           ""
-                          (string "Active:   " ((par act-idx) :name))]]
+                          (if (pos? (length par)) (string "Active:   " ((par act-idx) :name)) "")]]
           (draw-text-panel font area-lines "AREA INFO"))
         (draw-minimap font tiles fog player)))
 

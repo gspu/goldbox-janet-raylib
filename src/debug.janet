@@ -31,7 +31,12 @@
 # ── Step 3: Party ─────────────────────────────────────────────
 (print "[11] Loading party...")
 (import ./party)
-(def p (party/make-party))
+(def slots (party/make-blank-creation))
+(def p (array/slice (map (fn [sl]
+          (let [race  (party/RACES  (sl :race-idx))
+                class (party/CLASSES (sl :class-idx))]
+            (party/make-custom-char (sl :name) race class (sl :stats))))
+        slots)))
 (print "[12] Party created. Members: " (map |($ :name) p))
 (print "[13] Tanis HP=" ((p 0) :hp) " THAC0=" ((p 0) :thac0))
 

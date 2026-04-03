@@ -90,23 +90,27 @@
     :thac0   (sc :thac0)  :ac     (sc :ac)
     :hp      (sc :hp)     :hp-max (sc :hp-max)
     :xp      (sc :xp)     :level  (sc :level)
-    :alive   (sc :alive)  :spells (sc :spells)
-    :active  (sc :active)})
+    :alive   (sc :alive)  :spells (sc :spells)})
 
 (defn load! [state slot]
   "Load from slot 0-9 into state. Returns true on success."
   (try
-    (let [path (slot-path slot)]
-      (if (os/stat path)
-        (let [data (unmarshal (slurp path))]
-          (put state :mode       (data :mode))
-          (put state :active-idx (data :active-idx))
-          (put state :tick       (data :tick))
-          (put state :messages   (array/slice (data :messages)))
-          (put state :party      (map restore-char (data :party)))
-          (put state :world      (restore-world (data :world)))
+    (let [path (slot-path slot)
+          data (when (os/stat path) (slurp path))]
+      (if data
+        (let [raw-data (unmarshal data)]
+          (def loaded-party (array/slice (map restore-char (or (raw-data :party) @[]))))
+          (put state :party      loaded-party)
+          (put state :world      (restore-world (raw-data :world)))
+          (put state :active-idx (or (raw-data :active-idx) 0))
+          (put state :messages   (array/slice (or (raw-data :messages) @[])))
           (put state :combat     nil)
           (put state :dialog-npc nil)
+          # If party is empty (save from before char-creation), go to charcreate
+          (put state :mode
+            (if (pos? (length loaded-party))
+              (or (raw-data :mode) :explore)
+              :charcreate))
           true)
         false))
     ([err] (eprint "Load failed: " err) false)))
