@@ -465,36 +465,54 @@
 
 # ── Splash / encounter portrait handler ─────────────────────
 # Shows the enemy or NPC portrait in the 3D view for a moment,
-# then any key advances to the pending action (combat or dialog).
+# Shows enemy/NPC portrait in 3D view.
+# Enemy: Enter = fight, F = flee, ESC = cancel
+# NPC:   Enter = talk, ESC = cancel
 
 (defn- handle-splash [state key]
-  (let [action (state :splash-pending-action)
-        par    (state :party)
+  (let [action  (state :splash-pending-action)
+        par     (state :party)
         speaker (or (state :splash-speaker) "")]
     (cond
+      # ESC — cancel, back to explore
       (= key rl/SC_ESCAPE)
         (do (put state :splash-pending-action nil)
             (put state :splash-monster nil)
             (put state :splash-npc nil)
+            (put state :splash-pending-monsters nil)
+            (put state :splash-speaker nil)
             (set-mode! state :explore))
-      # Any other key advances
-      true
-        (case action
-          :combat
+
+      # ── Enemy splash ─────────────────────────────────────
+      (= action :combat)
+        (cond
+          # Enter — fight
+          (= key rl/SC_RETURN)
             (let [monsters (state :splash-pending-monsters)]
               (put state :combat (combat/make-combat par monsters))
               (put state :splash-monster nil)
               (put state :splash-pending-monsters nil)
               (put state :splash-pending-action nil)
               (set-mode! state :combat))
-          :dialog
-            (let [npc (state :splash-npc)]
-              (put state :dialog-npc npc)
-              (put state :splash-npc nil)
-              (put state :splash-pending-action nil)
-              (msg! state (string speaker ": \"" (npc :name) "?\""))
-              (msg! state (string (npc :name) ": " (first (npc :dialog))))
-              (set-mode! state :dialog))))))
+          # F — attempt to flee before combat starts
+          (= key rl/SC_F)
+            (do (msg! state "You flee before the battle begins!")
+                (put state :splash-monster nil)
+                (put state :splash-pending-monsters nil)
+                (put state :splash-pending-action nil)
+                (set-mode! state :explore)))
+
+      # ── NPC splash ───────────────────────────────────────
+      (= action :dialog)
+        (when (= key rl/SC_RETURN)
+          (let [npc (state :splash-npc)]
+            (put state :dialog-npc npc)
+            (put state :splash-npc nil)
+            (put state :splash-pending-action nil)
+            (put state :splash-speaker nil)
+            (msg! state (string speaker ": \"" (npc :name) "?\""))
+            (msg! state (string (npc :name) ": " (first (npc :dialog))))
+            (set-mode! state :dialog))))))
 
 # ── Top-level event dispatcher ────────────────────────────────
 

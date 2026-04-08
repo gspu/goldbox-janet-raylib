@@ -817,11 +817,10 @@
 # ── Encounter / NPC splash screen ────────────────────────────
 #
 # Shown in the 3D view when an enemy is encountered or an NPC
-# is approached. Displays the portrait centred over the 3D view
-# with a name banner and "Press any key" prompt.
+# is approached. Displays the portrait centred over the 3D view.
 #
-# Enemy sprite key: "enemies/<monster-name-with-underscores>"
-# e.g. :baaz-draconian -> "enemies/baaz_draconian"
+# Enemy:  ENTER = fight   F = flee before battle   ESC = cancel
+# NPC:    ENTER = speak   ESC = cancel
 
 (defn- monster-sprite-key [monster]
   "Convert monster name to enemies/ texture key."
@@ -896,16 +895,26 @@
                          "  XP: " (monster :xp))
             (+ sx 8) (+ sy 8) COL-GRAY)))
 
-  # ── Prompt ─────────────────────────────────────────────────
-  (let [prompt (if is-enemy
-                 "AMBUSH!  Press any key to fight..."
-                 (string entity-name " wants to speak.  Press any key..."))
-        pc     (if is-enemy COL-RED COL-CYAN)
-        prompt-y (+ py ph 60)]
-    (fill (- VIEW-X 0) (- prompt-y 6) VIEW-W 24 [0 0 0 180])
-    (text font prompt
-          (+ VIEW-X (- (/ VIEW-W 2) (/ (* (length prompt) 9) 2)))
-          prompt-y pc)))
+  # ── Prompt bar ─────────────────────────────────────────────
+  (let [prompt-y (+ py ph 60)]
+    (fill VIEW-X (- prompt-y 6) VIEW-W 24 [0 0 0 200])
+    (if is-enemy
+      (do
+        # Two options side by side like the original Gold Box
+        (let [left  "ENTER  :  Fight"
+              right "F  :  Flee"
+              lx    (+ VIEW-X 40)
+              rx    (+ VIEW-X VIEW-W -120)]
+          (text font left  lx  prompt-y COL-GOLD)
+          (text font right rx  prompt-y COL-YELLOW)
+          # divider
+          (line (+ VIEW-X (/ VIEW-W 2)) (- prompt-y 4)
+                (+ VIEW-X (/ VIEW-W 2)) (+ prompt-y 18) COL-SEP)))
+      (do
+        (text font (string "ENTER  :  Speak to " entity-name)
+              (+ VIEW-X 40) prompt-y COL-CYAN)))
+    # ESC hint always bottom-right
+    (text font "ESC : cancel" (+ VIEW-X VIEW-W -108) (+ prompt-y 20) COL-GRAY)))
 
 # ── Full-frame render ─────────────────────────────────────────
 
