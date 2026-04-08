@@ -416,6 +416,33 @@ static Janet cfun_draw_floor_ceiling(int32_t argc, Janet *argv)
     return janet_wrap_nil();
 }
 
+/* (rl/draw-texture-scaled tex dst-x dst-y dst-w dst-h tint-r tint-g tint-b) -> nil
+   Draws the entire texture scaled into the rectangle (dst-x,dst-y,dst-w,dst-h).
+   tint-r/g/b tint the image (255,255,255 = no tint). */
+static Janet cfun_draw_texture_scaled(int32_t argc, Janet *argv)
+{
+    janet_fixarity(argc, 8);
+    JRTexture *jt  = janet_getabstract(argv, 0, &janet_rl_texture_type);
+    int dst_x = janet_getinteger(argv, 1);
+    int dst_y = janet_getinteger(argv, 2);
+    int dst_w = janet_getinteger(argv, 3);
+    int dst_h = janet_getinteger(argv, 4);
+    int r     = janet_getinteger(argv, 5);
+    int g     = janet_getinteger(argv, 6);
+    int b     = janet_getinteger(argv, 7);
+
+    if (!jt || jt->gpu_tex.id == 0) return janet_wrap_nil();
+
+    Rectangle src = { 0.0f, 0.0f,
+                      (float)jt->gpu_tex.width,
+                      (float)jt->gpu_tex.height };
+    Rectangle dst = { (float)dst_x, (float)dst_y,
+                      (float)dst_w, (float)dst_h };
+    Color tint = { (unsigned char)r, (unsigned char)g, (unsigned char)b, 255 };
+    DrawTexturePro(jt->gpu_tex, src, dst, (Vector2){0.0f, 0.0f}, 0.0f, tint);
+    return janet_wrap_nil();
+}
+
 /* ═══════════════════════════════════════════════════════════════
  * Isometric diamond primitives
  * Used by the Gold Box-style tactical combat view.
@@ -483,8 +510,9 @@ static const JanetReg cfuns[] = {
     {"draw-text",    cfun_draw_text,    "(rl/draw-text font text x y r g b a)"},
     {"load-texture",       cfun_load_texture,       "(rl/load-texture path)"},
     {"unload-texture",     cfun_unload_texture,     "(rl/unload-texture tex)"},
-    {"draw-texture-strip", cfun_draw_texture_strip, "(rl/draw-texture-strip tex u x y h r g b)"},
-    {"draw-floor-ceiling", cfun_draw_floor_ceiling, "(rl/draw-floor-ceiling ft ct px py dx dy plx ply vx vy vw vh)"},
+    {"draw-texture-strip",  cfun_draw_texture_strip,  "(rl/draw-texture-strip tex u x y h r g b)"},
+    {"draw-texture-scaled", cfun_draw_texture_scaled, "(rl/draw-texture-scaled tex x y w h r g b)"},
+    {"draw-floor-ceiling",  cfun_draw_floor_ceiling,  "(rl/draw-floor-ceiling ft ct px py dx dy plx ply vx vy vw vh)"},
     {"fill-diamond",       cfun_fill_diamond,       "(rl/fill-diamond cx cy hw hh)"},
     {"draw-diamond-lines", cfun_draw_diamond_lines, "(rl/draw-diamond-lines cx cy hw hh)"},
     {NULL, NULL, NULL}

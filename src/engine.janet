@@ -35,6 +35,11 @@
       :active-idx  0
       :combat      nil
       :dialog-npc  nil
+      :splash-monster nil
+      :splash-npc     nil
+      :splash-pending-action nil
+      :splash-pending-monsters nil
+      :splash-speaker nil
       :messages    @["The War of the Lance has begun. Takhisis stirs."
                      "Your party stands in Solace. Move with arrow keys."]
       :running     true
@@ -70,9 +75,12 @@
           # Random encounter?
           (when (world/encounter-check?)
             (let [monsters (world/random-encounter (w :level))]
-              (msg! state (string "You are attacked by " (length monsters) " enemies!"))
-              (put state :combat (combat/make-combat par monsters))
-              (set-mode! state :combat))))
+              (when (pos? (length monsters))
+                (msg! state (string "You are attacked by " (length monsters) " enemies!"))
+                (put state :splash-monster (first monsters))
+                (put state :splash-pending-action :combat)
+                (put state :splash-pending-monsters monsters)
+                (set-mode! state :splash)))))
 
       (= key rl/SC_DOWN)
         (do
@@ -94,10 +102,10 @@
               speaker ((par (state :active-idx)) :name)]
           (if npc
             (do
-              (put state :dialog-npc npc)
-              (set-mode! state :dialog)
-              (msg! state (string speaker ": \"" (npc :name) "?\""))
-              (msg! state (string (npc :name) ": " (first (npc :dialog)))))
+              (put state :splash-npc npc)
+              (put state :splash-pending-action :dialog)
+              (put state :splash-speaker speaker)
+              (set-mode! state :splash))
             (msg! state (string speaker " sees no one to talk to."))))
 
       # Rest
@@ -455,6 +463,39 @@
           (let [n (length party/CLASSES)]
             (put sl :class-idx (% (+ (sl :class-idx) 1) n))))))
 
+# ── Splash / encounter portrait handler ─────────────────────
+# Shows the enemy or NPC portrait in the 3D view for a moment,
+# then any key advances to the pending action (combat or dialog).
+
+(defn- handle-splash [state key]
+  (let [action (state :splash-pending-action)
+        par    (state :party)
+        speaker (or (state :splash-speaker) "")]
+    (cond
+      (= key rl/SC_ESCAPE)
+        (do (put state :splash-pending-action nil)
+            (put state :splash-monster nil)
+            (put state :splash-npc nil)
+            (set-mode! state :explore))
+      # Any other key advances
+      true
+        (case action
+          :combat
+            (let [monsters (state :splash-pending-monsters)]
+              (put state :combat (combat/make-combat par monsters))
+              (put state :splash-monster nil)
+              (put state :splash-pending-monsters nil)
+              (put state :splash-pending-action nil)
+              (set-mode! state :combat))
+          :dialog
+            (let [npc (state :splash-npc)]
+              (put state :dialog-npc npc)
+              (put state :splash-npc nil)
+              (put state :splash-pending-action nil)
+              (msg! state (string speaker ": \"" (npc :name) "?\""))
+              (msg! state (string (npc :name) ": " (first (npc :dialog))))
+              (set-mode! state :dialog))))))
+
 # ── Top-level event dispatcher ────────────────────────────────
 
 (defn dispatch-key! [state key]
@@ -462,6 +503,7 @@
   (case (state :mode)
     :startscreen (handle-startscreen state key)
     :charcreate  (handle-charcreate  state key)
+    :splash      (handle-splash      state key)
     :explore   (handle-explore   state key)
     :combat    (handle-combat    state key)
     :dialog    (handle-dialog    state key)

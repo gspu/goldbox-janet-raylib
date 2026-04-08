@@ -814,6 +814,99 @@
     (text font (string nav-hint "    R: reroll stats    ESC: cancel")
           40 (- WIN-H 22) COL-GRAY)))
 
+# ── Encounter / NPC splash screen ────────────────────────────
+#
+# Shown in the 3D view when an enemy is encountered or an NPC
+# is approached. Displays the portrait centred over the 3D view
+# with a name banner and "Press any key" prompt.
+#
+# Enemy sprite key: "enemies/<monster-name-with-underscores>"
+# e.g. :baaz-draconian -> "enemies/baaz_draconian"
+
+(defn- monster-sprite-key [monster]
+  "Convert monster name to enemies/ texture key."
+  (string "enemies/"
+          (string/replace-all " " "_"
+            (string/ascii-lower (monster :name)))))
+
+(defn draw-splash [font tiles player level tex-config textures state]
+  # Render the 3D world behind as context
+  (draw-3d-view font tiles player level tex-config textures)
+
+  (def monster  (state :splash-monster))
+  (def npc      (state :splash-npc))
+  (def action   (state :splash-pending-action))
+  (def is-enemy (= action :combat))
+
+  # Name and sprite key
+  (def entity-name
+    (cond monster (monster :name)
+          npc     (npc :name)
+          "???"))
+  (def tex-key
+    (if is-enemy
+      (monster-sprite-key (or monster @{:name "unknown"}))
+      nil))
+  (def portrait (and tex-key (get textures tex-key)))
+
+  # ── Portrait frame ────────────────────────────────────────
+  (def px   (+ VIEW-X (- (/ VIEW-W 2) 80)))
+  (def py   (+ PANEL-Y 40))
+  (def pw   160)
+  (def ph   160)
+
+  # Backdrop
+  (fill 0 PANEL-Y VIEW-W PANEL-H [0 0 0 160])
+  (fill (- px 6) (- py 6) (+ pw 12) (+ ph 12)
+        (if is-enemy [80 20 10 255] [20 50 80 255]))
+  (fill (- px 4) (- py 4) (+ pw 8) (+ ph 8) COL-DARK)
+  (outline (- px 4) (- py 4) (+ pw 8) (+ ph 8)
+           (if is-enemy COL-RED COL-GOLD))
+
+  # Portrait or placeholder silhouette
+  (if portrait
+    (rl/draw-texture-scaled portrait px py pw ph 255 255 255)
+    (do
+      # Fallback: stylised "?" silhouette
+      (fill px py pw ph [20 18 14 255])
+      (text font "?" (+ px (- (/ pw 2) 8)) (+ py (- (/ ph 2) 10)) COL-GRAY)))
+
+  # ── Name banner ────────────────────────────────────────────
+  (def bw (+ pw 8))
+  (def bx (- px 4))
+  (def by (+ py ph 4))
+  (fill bx by bw 20
+        (if is-enemy [120 25 15 255] [20 60 100 255]))
+  (outline bx by bw 20
+           (if is-enemy COL-RED COL-GOLD))
+  (let [ch-w 9
+        tx   (+ bx (- (/ bw 2) (/ (* (length entity-name) ch-w) 2)))]
+    (text font entity-name tx (+ by 4)
+          (if is-enemy COL-RED COL-GOLD)))
+
+  # ── Stats strip (enemies only) ─────────────────────────────
+  (when (and is-enemy monster)
+    (let [sx  bx
+          sy  (+ by 24)
+          sw  bw
+          sh  30]
+      (fill sx sy sw sh [12 10 8 220])
+      (outline sx sy sw sh COL-SEP)
+      (text font (string "HP: " (monster :hp) "  AC: " (monster :ac)
+                         "  XP: " (monster :xp))
+            (+ sx 8) (+ sy 8) COL-GRAY)))
+
+  # ── Prompt ─────────────────────────────────────────────────
+  (let [prompt (if is-enemy
+                 "AMBUSH!  Press any key to fight..."
+                 (string entity-name " wants to speak.  Press any key..."))
+        pc     (if is-enemy COL-RED COL-CYAN)
+        prompt-y (+ py ph 60)]
+    (fill (- VIEW-X 0) (- prompt-y 6) VIEW-W 24 [0 0 0 180])
+    (text font prompt
+          (+ VIEW-X (- (/ VIEW-W 2) (/ (* (length prompt) 9) 2)))
+          prompt-y pc)))
+
 # ── Full-frame render ─────────────────────────────────────────
 
 (defn render-frame [font state textures]
@@ -839,6 +932,12 @@
       (if (= mode :charcreate)
         (do
           (draw-charcreate font state)
+          (rl/present))
+      (if (= mode :splash)
+        (do
+          (draw-splash font tiles player level
+                       (world/level-tex-config level) textures state)
+          (draw-messages font msgs)
           (rl/present))
       (do
         # Panels
@@ -901,4 +1000,4 @@
     (when (= mode :savemenu)
       (draw-savemenu font state))
 
-    (rl/present))))))
+    (rl/present)))))))

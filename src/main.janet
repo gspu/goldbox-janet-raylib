@@ -27,19 +27,25 @@
       (set found candidate)))
   (or found "textures"))
 
+(defn- load-dir-into! [t base-dir prefix]
+  "Load all .png files from base-dir into table t, keyed as prefix/basename."
+  (when (os/stat base-dir)
+    (each entry (os/dir base-dir)
+      (when (string/has-suffix? ".png" entry)
+        (def name (string prefix (string/slice entry 0 (- (length entry) 4))))
+        (def path (string base-dir "/" entry))
+        (def tex (rl/load-texture path))
+        (if tex
+          (put t name tex)
+          (eprint (string "Warning: failed to load: " path)))))))
+
 (defn- load-textures []
-  "Auto-discover and load every .png in the textures/ folder.
-   Returns a table mapping basename (no extension) -> texture handle."
+  "Load all .png textures from textures/ and textures/enemies/.
+   Root textures are keyed by basename; enemy sprites as enemies/<name>."
   (def dir (find-tex-dir))
   (def t @{})
-  (each entry (os/dir dir)
-    (when (string/has-suffix? ".png" entry)
-      (def name (string/slice entry 0 (- (length entry) 4)))
-      (def path (string dir "/" entry))
-      (def tex (rl/load-texture path))
-      (if tex
-        (put t name tex)
-        (eprint (string "Warning: failed to load texture: " path)))))
+  (load-dir-into! t dir "")
+  (load-dir-into! t (string dir "/enemies") "enemies/")
   (eprint (string "Loaded " (length t) " textures from " dir))
   t)
 
