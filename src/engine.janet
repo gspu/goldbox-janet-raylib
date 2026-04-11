@@ -205,20 +205,16 @@
         (or (= key rl/SC_UP) (= key rl/SC_DOWN))
           nil  # future: cycle target index
 
-        # Cast spell
+        # Cast spell — open spell selection menu
         (= key rl/SC_S)
           (let [spells (hero :spells)]
             (if (pos? (length spells))
-              (let [spell  (first spells)
-                    target (if (pos? (length targets)) (first targets) hero)
-                    phase  (combat/hero-cast-spell! cs hero spell target)]
-                (msg! state (string (hero :name) " casts " spell "!"))
-                (when (= phase :victory)
-                  (let [xp (combat/xp-reward cs)]
-                    (party/award-xp! par xp)
-                    (msg! state (string "Victory! Earned " xp " XP."))
-                    (put state :combat nil)
-                    (set-mode! state :explore))))
+              (do
+                (put state :spell-menu
+                     @{:spell-idx   0
+                       :target-mode :enemy
+                       :target-idx  0})
+                (set-mode! state :spell-select))
               (msg! state (string (hero :name) " has no spells."))))
 
         # Flee
@@ -516,17 +512,83 @@
 
 # ── Top-level event dispatcher ────────────────────────────────
 
+# ── Spell selection handler ───────────────────────────────────
+# ↑↓  cycle spells        ←→  cycle targets in current group
+# T   toggle enemies / allies   ENTER cast   ESC cancel
+
+(defn- handle-spell-select [state key]
+  (let [cs      (state :combat)
+        par     (state :party)
+        hero    ((state :party) (state :active-idx))
+        sm      (state :spell-menu)
+        spells  (hero :spells)
+        n-sp    (length spells)
+        enemies (combat/living-monsters cs)
+        allies  (party/living-members par)]
+    (cond
+      # ESC — cancel, back to combat
+      (= key rl/SC_ESCAPE)
+        (do (put state :spell-menu nil)
+            (set-mode! state :combat))
+
+      # ↑↓ — cycle spells
+      (= key rl/SC_UP)
+        (put sm :spell-idx (% (+ (sm :spell-idx) n-sp -1) n-sp))
+      (= key rl/SC_DOWN)
+        (put sm :spell-idx (% (+ (sm :spell-idx) 1) n-sp))
+
+      # T — toggle target group
+      (= key rl/SC_T)
+        (do (put sm :target-mode
+                 (if (= (sm :target-mode) :enemy) :ally :enemy))
+            (put sm :target-idx 0))
+
+      # ←→ — cycle targets within current group
+      (= key rl/SC_LEFT)
+        (let [pool (if (= (sm :target-mode) :enemy) enemies allies)
+              n    (length pool)]
+          (when (pos? n)
+            (put sm :target-idx (% (+ (sm :target-idx) n -1) n))))
+      (= key rl/SC_RIGHT)
+        (let [pool (if (= (sm :target-mode) :enemy) enemies allies)
+              n    (length pool)]
+          (when (pos? n)
+            (put sm :target-idx (% (+ (sm :target-idx) 1) n))))
+
+      # ENTER — cast selected spell on selected target
+      (= key rl/SC_RETURN)
+        (let [spell    (spells (sm :spell-idx))
+              pool     (if (= (sm :target-mode) :enemy) enemies allies)
+              target   (when (pos? (length pool))
+                         (pool (% (sm :target-idx) (length pool))))
+              real-tgt (or target hero)]
+          (put state :spell-menu nil)
+          (set-mode! state :combat)
+          (let [phase (combat/hero-cast-spell! cs hero spell real-tgt)]
+            (msg! state (string (hero :name) " casts " spell
+                                " on " (real-tgt :name) "!"))
+            (when (= phase :victory)
+              (let [xp (combat/xp-reward cs)]
+                (party/award-xp! par xp)
+                (msg! state (string "Victory! Earned " xp " XP."))
+                (put state :combat nil)
+                (set-mode! state :explore)))
+            (when (= phase :defeat)
+              (msg! state "Your party has been slain...")
+              (put state :running false)))))))
+
 (defn dispatch-key! [state key]
   "Route a keydown scancode to the correct mode handler."
   (case (state :mode)
     :startscreen (handle-startscreen state key)
     :charcreate  (handle-charcreate  state key)
     :splash      (handle-splash      state key)
-    :explore   (handle-explore   state key)
-    :combat    (handle-combat    state key)
-    :dialog    (handle-dialog    state key)
-    :inventory (handle-inventory state key)
-    :savemenu  (handle-savemenu  state key)))
+    :explore      (handle-explore      state key)
+    :combat       (handle-combat       state key)
+    :spell-select (handle-spell-select state key)
+    :dialog       (handle-dialog       state key)
+    :inventory    (handle-inventory    state key)
+    :savemenu     (handle-savemenu     state key)))
 
 # ── Event loop step ───────────────────────────────────────────
 

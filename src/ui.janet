@@ -312,7 +312,7 @@
     (set-col [76 68 56 255])
     (rl/draw-diamond-lines cx cy hw hh)))
 
-(defn draw-iso-combat-view [font combat-state]
+(defn draw-iso-combat-view [font combat-state spell-menu]
   # Grid origin — top vertex of tile (0,0), centred horizontally in the view.
   # The full grid spans (COLS+ROWS)*TW/2 wide and (COLS+ROWS)*TH/2 tall.
   (let [ox  (+ VIEW-X (math/floor (/ VIEW-W 2)))
@@ -334,6 +334,46 @@
     # ── Combatants — sorted back-to-front for correct z-order ──
     (def entries (array/slice (pairs pos)))
     (sort-by (fn [[_ [c r]]] (+ c r)) entries)
+
+    # ── Hero facing directions ────────────────────────────────────
+    # For each alive hero find the nearest alive monster in grid space
+    # so we can draw a directional arrow showing who they face.
+    (def hero-facing @{})
+    (each [hidx [hcol hrow]] entries
+      (when (< hidx (length combs))
+        (let [hc (combs hidx)]
+          (when (and (= :hero (hc :kind)) ((hc :ref) :alive))
+            (var best-d math/inf)
+            (var fdx 0) (var fdy 0)
+            (each [midx [mcol mrow]] entries
+              (when (< midx (length combs))
+                (let [mc (combs midx)]
+                  (when (and (= :monster (mc :kind)) ((mc :ref) :alive))
+                    (let [dx (- mcol hcol)
+                          dy (- mrow hrow)
+                          d  (+ (* dx dx) (* dy dy))]
+                      (when (< d best-d)
+                        (set best-d d)
+                        (set fdx dx)
+                        (set fdy dy)))))))
+            (when (< best-d math/inf)
+              (put hero-facing hidx [fdx fdy]))))))
+
+    # ── Living indices for spell-target highlight ─────────────────
+    # Maps each combatant's :ref to its index within living-monsters
+    # / living-heroes so we can tell which is currently targeted.
+    (def living-mon-idx  @{})
+    (def living-hero-idx @{})
+    (when spell-menu
+      (var mi 0) (var hi 0)
+      (each [eidx _] entries
+        (when (< eidx (length combs))
+          (let [ec (combs eidx)]
+            (cond
+              (and (= :monster (ec :kind)) ((ec :ref) :alive))
+                (do (put living-mon-idx  (ec :ref) mi) (++ mi))
+              (and (= :hero    (ec :kind)) ((ec :ref) :alive))
+                (do (put living-hero-idx (ec :ref) hi) (++ hi)))))))
 
     (each [idx [col row]] entries
       (when (< idx (length combs))
@@ -377,7 +417,50 @@
           (when (not alive)
             (set-col [180 40 40 200])
             (rl/draw-diamond-lines cx cy hw hh)
-            (text font "X" (- cx 4) (- cy 8) COL-RED)))))
+            (text font "X" (- cx 4) (- cy 8) COL-RED))
+
+          # ── Facing arrow ─────────────────────────────────────────
+          # Draw a direction indicator from the hero toward the nearest
+          # living enemy using ISO-projected screen-space coordinates.
+          (let [facing (get hero-facing idx)]
+            (when (and facing is-hero alive)
+              (let [[fdx fdy] facing
+                    # ISO projection: screen dx = (tile_dx - tile_dy)*TW/2
+                    #                 screen dy = (tile_dx + tile_dy)*TH/2
+                    sdx  (* (- fdx fdy) (/ ISO-TW 2))
+                    sdy  (* (+ fdx fdy) (/ ISO-TH 2))
+                    slen (math/sqrt (+ (* sdx sdx) (* sdy sdy)))
+                    nx   (if (> slen 0) (/ sdx slen) 0)
+                    ny   (if (> slen 0) (/ sdy slen) 0)
+                    tx   (math/floor (+ cx (* nx (+ hw 9))))
+                    ty   (math/floor (+ cy (* ny (+ hh 6))))]
+                (set-col (if active [255 220 0 255] [180 180 70 200]))
+                (rl/draw-line cx cy tx ty)
+                # Arrowhead — two short branches angled off the tip
+                (let [px (math/floor (+ (- tx (* nx 5)) (*    ny  4)))
+                      py (math/floor (+ (- ty (* ny 5)) (* (- nx) 4)))
+                      qx (math/floor (+ (- tx (* nx 5)) (*    ny -4)))
+                      qy (math/floor (+ (- ty (* ny 5)) (*    nx  4)))]
+                  (rl/draw-line tx ty px py)
+                  (rl/draw-line tx ty qx qy)))))
+
+          # ── Spell-menu target highlight ───────────────────────────
+          # Ring the entity currently under the cursor in the spell UI.
+          (when spell-menu
+            (let [tmode (spell-menu :target-mode)
+                  tidx  (spell-menu :target-idx)
+                  ref   (c :ref)
+                  hi?   (cond
+                          (and (= :monster (c :kind)) alive (= tmode :enemy))
+                            (= (get living-mon-idx ref) tidx)
+                          (and (= :hero (c :kind)) alive (= tmode :ally))
+                            (= (get living-hero-idx ref) tidx)
+                          false)]
+              (when hi?
+                (set-col (if (= tmode :enemy) [255 80 80 220] [80 210 255 220]))
+                (rl/draw-diamond-lines cx cy (+ hw 7) (+ hh 5))
+                (set-col (if (= tmode :enemy) [255 180 180 100] [160 235 255 100]))
+                (rl/draw-diamond-lines cx cy (+ hw 10) (+ hh 7))))))))
 
     # ── Turn indicator banner ────────────────────────────────────
     (when (pos? n)
@@ -916,6 +999,93 @@
     # ESC hint always bottom-right
     (text font "ESC : cancel" (+ VIEW-X VIEW-W -108) (+ prompt-y 20) COL-GRAY)))
 
+# ── Spell selection panel ────────────────────────────────────
+# Replaces the combat log panel while the player picks a spell and target.
+# Layout inside the TEXT panel:
+#   Spell list (highlighted row = selected)
+#   ─────────
+#   [Enemies] / [Allies]  tab strip
+#   Target list (highlighted row = selected)
+#   ─────────
+#   Key hints
+
+(defn draw-spell-panel [font state]
+  (let [sm      (state :spell-menu)
+        cs      (state :combat)
+        par     (state :party)
+        hero    ((state :party) (or (state :active-idx) 0))
+        spells  (hero :spells)
+        enemies (combat/living-monsters cs)
+        allies  (party/living-members par)
+        sel-sp  (sm :spell-idx)
+        tmode   (sm :target-mode)
+        tidx    (sm :target-idx)
+        pool    (if (= tmode :enemy) enemies allies)]
+
+    # Panel background
+    (fill    TEXT-X PANEL-Y TEXT-W PANEL-H COL-PANEL-BG)
+    (outline TEXT-X PANEL-Y TEXT-W PANEL-H COL-SEP)
+    (text font "CAST SPELL" (+ TEXT-X 8) (+ PANEL-Y 6) COL-GOLD)
+    (line TEXT-X (+ PANEL-Y 22) (+ TEXT-X TEXT-W) (+ PANEL-Y 22) COL-SEP)
+
+    # ── Spell list ───────────────────────────────────────────────
+    (var ly (+ PANEL-Y 30))
+    (eachp [i sp] spells
+      (let [sel (= i sel-sp)]
+        (when sel
+          (fill TEXT-X ly TEXT-W 18 [40 32 5 220]))
+        (text font (string (if sel "> " "  ") sp)
+              (+ TEXT-X 8) (+ ly 13)
+              (if sel COL-GOLD COL-WHITE)))
+      (set ly (+ ly 18)))
+
+    # separator
+    (set ly (+ ly 4))
+    (line TEXT-X ly (+ TEXT-X TEXT-W) ly COL-SEP)
+    (set ly (+ ly 6))
+
+    # ── Target-mode tabs ─────────────────────────────────────────
+    (let [half (/ TEXT-W 2)]
+      (if (= tmode :enemy)
+        (fill TEXT-X ly half 20 [60 15 10 200])
+        (fill (+ TEXT-X half) ly half 20 [10 30 50 200]))
+      (line (+ TEXT-X half) ly (+ TEXT-X half) (+ ly 20) COL-SEP)
+      (text font "Enemies" (+ TEXT-X 8)         (+ ly 14)
+            (if (= tmode :enemy) COL-RED  COL-GRAY))
+      (text font "Allies"  (+ TEXT-X half 8)    (+ ly 14)
+            (if (= tmode :ally)  COL-CYAN COL-GRAY))
+      (text font "[T]"     (+ TEXT-X (- TEXT-W 28)) (+ ly 14) COL-GRAY))
+    (set ly (+ ly 22))
+    (line TEXT-X ly (+ TEXT-X TEXT-W) ly COL-SEP)
+    (set ly (+ ly 6))
+
+    # ── Target list ──────────────────────────────────────────────
+    (if (pos? (length pool))
+      (eachp [i tgt] pool
+        (let [sel (= i tidx)
+              tc  (if (= tmode :enemy) COL-RED COL-CYAN)
+              hp  (string "HP " (tgt :hp) "/" (tgt :hp-max))]
+          (when sel
+            (fill TEXT-X ly TEXT-W 30
+                  (if (= tmode :enemy) [50 10 10 200] [8 28 44 200])))
+          (text font (string (if sel "> " "  ") (tgt :name))
+                (+ TEXT-X 8) (+ ly 10)
+                (if sel tc COL-WHITE))
+          (text font hp (+ TEXT-X 16) (+ ly 24) COL-GRAY)
+          (set ly (+ ly 32))))
+      (text font "  (none)" (+ TEXT-X 8) (+ ly 14) COL-GRAY))
+
+    # ── Hint bar ─────────────────────────────────────────────────
+    (let [hint-y (- (+ PANEL-Y PANEL-H) 46)]
+      (fill TEXT-X hint-y TEXT-W 46 [8 6 4 220])
+      (line TEXT-X hint-y (+ TEXT-X TEXT-W) hint-y COL-SEP)
+      (text font (string (hero :name) " — choose spell & target")
+            (+ TEXT-X 8) (+ hint-y 13) COL-GOLD)
+      (text font "↑↓ spell   ←→ target   T: switch group"
+            (+ TEXT-X 8) (+ hint-y 27) COL-GRAY)
+      (text font "ENTER: cast            ESC: cancel"
+            (+ TEXT-X 8) (+ hint-y 41) COL-GRAY))))
+
 # ── Full-frame render ─────────────────────────────────────────
 
 (defn render-frame [font state textures]
@@ -954,11 +1124,16 @@
 
         (case mode
       :combat
-        (let [cs       (state :combat)
-              log-lines (combat/combat-log cs)
-              monsters  (combat/living-monsters cs)]
-          (draw-iso-combat-view font cs)
+        (let [cs        (state :combat)
+              log-lines (combat/combat-log cs)]
+          (draw-iso-combat-view font cs nil)
           (draw-text-panel font log-lines "COMBAT")
+          (draw-minimap font tiles fog player))
+
+      :spell-select
+        (let [cs (state :combat)]
+          (draw-iso-combat-view font cs (state :spell-menu))
+          (draw-spell-panel font state)
           (draw-minimap font tiles fog player))
 
       :dialog
