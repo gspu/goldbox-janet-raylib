@@ -47,6 +47,7 @@
       :positions  positions
       :turn-idx   0
       :phase      :active   # :active | :victory | :defeat
+      :buffs      @{}
       :log        @[]}))
 
 # ── Logging ───────────────────────────────────────────────────
@@ -54,20 +55,45 @@
 (defn- log! [state msg]
   (array/push (state :log) msg))
 
+# ── Entity status helpers ─────────────────────────────────────
+
+(defn can-act? [entity]
+  "True if entity is alive and not incapacitated (asleep/held)."
+  (let [s (entity :status)]
+    (if s
+      (= s :alive)
+      (entity :alive))))
+
+(defn effective-ac [combat-state entity]
+  "Return AC with any active buffs applied."
+  (let [base-ac (entity :ac)
+        buffs (get-in combat-state [:buffs (entity :name)])]
+    (if buffs
+      (+ base-ac (or (buffs :ac-bonus) 0))
+      base-ac)))
+
+(defn effective-thac0 [combat-state entity]
+  "Return THAC0 with any active buffs applied."
+  (let [base-thac0 (entity :thac0)
+        buffs (get-in combat-state [:buffs (entity :name)])]
+    (if buffs
+      (+ base-thac0 (or (buffs :thac0-bonus) 0))
+      base-thac0)))
+
 # ── THAC0 attack resolution ───────────────────────────────────
 
-(defn- resolve-attack [attacker target]
+(defn- resolve-attack [combat-state attacker target]
   "Return [hit? damage] for one attack roll."
   (let [roll   (rng/d20)
-        thac0  (attacker :thac0)
-        ac     (target  :ac)
+        thac0  (effective-thac0 combat-state attacker)
+        ac     (effective-ac combat-state target)
         hit    (>= roll (- thac0 ac))
         dmg    (if hit (+ (rng/d6) (rng/d6)) 0)]
     [hit dmg]))
 
 # ── Spell resolution ──────────────────────────────────────────
 
-(defn- resolve-spell [caster spell-name target log-fn]
+(defn- resolve-spell [caster spell-name target combat-state log-fn]
   (case spell-name
     "Magic Missile"
       (let [dmg (+ 1 (rng/d4))]
@@ -75,11 +101,11 @@
         (log-fn (string (caster :name) " fires Magic Missile for " dmg " damage!")))
     "Sleep"
       (do
-        (put target :alive false)  # treated as incapacitation for simplicity
+        (put target :status :asleep)
         (log-fn (string (caster :name) " casts Sleep! " (target :name) " falls asleep!")))
     "Mirror Image"
       (do
-        (put caster :ac (- (caster :ac) 2))   # temporary AC bonus
+        (put (combat-state :buffs) (caster :name) {:ac-bonus -2})
         (log-fn (string (caster :name) " creates mirror images. AC improved!")))
     "Cure Light Wounds"
       (let [heal (+ 1 (rng/d8))]
@@ -87,11 +113,11 @@
         (log-fn (string (caster :name) " heals " (target :name) " for " heal " HP.")))
     "Hold Person"
       (do
-        (put target :alive false)
+        (put target :status :held)
         (log-fn (string (caster :name) " casts Hold Person! " (target :name) " is paralysed!")))
     "Bless"
       (do
-        (put caster :thac0 (- (caster :thac0) 1))   # improve THAC0 for the party leader
+        (put (combat-state :buffs) (caster :name) {:thac0-bonus -1})
         (log-fn (string (caster :name) " calls Mishakal's blessing. THAC0 improved!")))
     # default
     (log-fn (string (caster :name) " fumbles the spell."))))
@@ -99,9 +125,9 @@
 # ── Monster AI ────────────────────────────────────────────────
 
 (defn- monster-turn! [state combatant heroes]
-  (let [target (find party/alive? heroes)]
+  (let [target (find can-act? heroes)]
     (if target
-      (let [[hit dmg] (resolve-attack (combatant :ref) target)]
+      (let [[hit dmg] (resolve-attack state (combatant :ref) target)]
         (if hit
           (do
             (party/take-damage! target dmg)
@@ -113,12 +139,12 @@
 # ── Phase checks ──────────────────────────────────────────────
 
 (defn- check-victory! [state heroes monsters]
-  (when (all |(not ($ :alive)) monsters)
+  (when (all |(= ($ :status) :dead) monsters)
     (put state :phase :victory)
     (log! state "Victory! The enemy is defeated.")))
 
 (defn- check-defeat! [state heroes]
-  (when (all party/dead? heroes)
+  (when (all |(= ($ :status) :dead) heroes)
     (put state :phase :defeat)
     (log! state "The party has fallen... Game over.")))
 
@@ -131,32 +157,31 @@
 
 (defn hero-turn? [state]
   (let [c (active-combatant state)]
-    (and c (= :hero (c :kind)) (party/alive? (c :ref)))))
+    (and c (= :hero (c :kind)) (can-act? (c :ref)))))
 
 (defn living-monsters [state]
-  (filter |($ :alive) (state :monsters)))
+  (filter can-act? (state :monsters)))
 
 (defn living-heroes [state combatants]
-  (filter |(and (= :hero ($ :kind)) (party/alive? ($ :ref))) combatants))
+  (filter |(and (= :hero ($ :kind)) (can-act? ($ :ref))) combatants))
 
 (defn advance-turn! [state]
-  "Move to the next combatant, skipping dead ones.
+  "Move to the next combatant, skipping dead/incapacitated ones.
    Returns the new phase keyword."
   (let [cs    (state :combatants)
         total (length cs)]
     (when (pos? total)
       (var steps 0)
       (put state :turn-idx (% (+ (state :turn-idx) 1) total))
-      # Skip dead combatants (guard against infinite loop)
+      # Skip dead/incapacitated combatants (guard against infinite loop)
       (while (and (< steps total)
                   (let [c (cs (state :turn-idx))]
-                    (or (and (= :hero    (c :kind)) (party/dead? (c :ref)))
-                        (and (= :monster (c :kind)) (not ((c :ref) :alive))))))
+                    (not (can-act? (c :ref)))))
         (put state :turn-idx (% (+ (state :turn-idx) 1) total))
         (++ steps))
       # Auto-run monster turns immediately
       (let [c (cs (state :turn-idx))]
-        (when (and (= :monster (c :kind)) ((c :ref) :alive)
+        (when (and (= :monster (c :kind)) (can-act? (c :ref))
                    (= :active (state :phase)))
           (let [heroes (map |($ :ref) (living-heroes state cs))]
             (monster-turn! state c heroes)
@@ -172,12 +197,13 @@
   (let [monsters (living-monsters state)]
     (when (and (< target-idx (length monsters)) (= :active (state :phase)))
       (let [target    (monsters target-idx)
-            [hit dmg] (resolve-attack hero target)]
+            [hit dmg] (resolve-attack state hero target)]
         (if hit
           (do
             (put target :hp (max 0 (- (target :hp) dmg)))
             (when (<= (target :hp) 0)
-              (put target :alive false))
+              (put target :alive false)
+              (put target :status :dead))
             (log! state (string (hero :name) " hits " (target :name)
                                 " for " dmg " damage!"
                                 (if (not (target :alive)) " Slain!" ""))))
@@ -193,7 +219,7 @@
 (defn hero-cast-spell! [state caster spell-name target]
   "The caster uses spell-name on target.
    target may be a hero (for healing) or a monster (for offensive spells)."
-  (resolve-spell caster spell-name target (fn [msg] (log! state msg)))
+  (resolve-spell caster spell-name target state (fn [msg] (log! state msg)))
   (let [heroes (map |($ :ref)
                     (filter |(= :hero ($ :kind)) (state :combatants)))]
     (check-victory! state heroes (state :monsters))
@@ -223,6 +249,6 @@
 
 (defn xp-reward [state]
   "Sum XP values of all slain monsters."
-  (reduce (fn [acc m] (+ acc (if (not (m :alive)) (m :xp) 0)))
+  (reduce (fn [acc m] (+ acc (if (= (m :status) :dead) (m :xp) 0)))
           0
           (state :monsters)))

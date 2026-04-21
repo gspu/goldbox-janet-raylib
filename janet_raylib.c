@@ -375,7 +375,30 @@ static Janet cfun_draw_floor_ceiling(int32_t argc, Janet *argv)
     int view_w    = janet_getinteger(argv, 10);
     int view_h    = janet_getinteger(argv, 11);
 
+    /* Persistent buffer: allocate once, reuse across frames */
+    static Image floor_img = {0};
+    static Texture2D floor_gpu = {0};
+
+    /* Recreate if dimensions changed (or first call) */
+    if (floor_img.width != view_w || floor_img.height != view_h) {
+        if (floor_gpu.id != 0) {
+            UnloadTexture(floor_gpu);
+            floor_gpu.id = 0;
+        }
+        if (floor_img.data != NULL) {
+            UnloadImage(floor_img);
+            floor_img.data = NULL;
+        }
+        floor_img = GenImageColor(view_w, view_h, BLANK);
+        floor_gpu = LoadTextureFromImage(floor_img);
+    }
+
+    /* Clear buffer to transparent black */
+    memset(floor_img.data, 0, (size_t)(view_w * view_h * 4));
+
     int halfH = view_h / 2;
+    int dst_pitch = view_w * 4;
+    unsigned char *dst = (unsigned char *)floor_img.data;
 
     for (int y = 0; y < view_h; y++) {
         int rel_y  = y - halfH;
@@ -395,6 +418,8 @@ static Janet cfun_draw_floor_ceiling(int32_t argc, Janet *argv)
 
         int tw = tex->cpu_img.width;
         int th = tex->cpu_img.height;
+        int src_pitch = tw * 4;
+        unsigned char *src_data = (unsigned char *)tex->cpu_img.data;
 
         float shade = 1.0f - rowDist / 12.0f;
         if (shade < 0.25f) shade = 0.25f;
@@ -406,13 +431,23 @@ static Janet cfun_draw_floor_ceiling(int32_t argc, Janet *argv)
             if (tx < 0) tx += tw;
             if (ty < 0) ty += th;
 
-            Color col = GetImageColor(tex->cpu_img, tx, ty);
-            col.r = (unsigned char)((float)col.r * shade);
-            col.g = (unsigned char)((float)col.g * shade);
-            col.b = (unsigned char)((float)col.b * shade);
-            DrawPixel(view_x + x, view_y + y, col);
+            unsigned char r = src_data[ty * src_pitch + tx * 4 + 0];
+            unsigned char g = src_data[ty * src_pitch + tx * 4 + 1];
+            unsigned char b = src_data[ty * src_pitch + tx * 4 + 2];
+
+            dst[y * dst_pitch + x * 4 + 0] = (unsigned char)(r * shade);
+            dst[y * dst_pitch + x * 4 + 1] = (unsigned char)(g * shade);
+            dst[y * dst_pitch + x * 4 + 2] = (unsigned char)(b * shade);
+            dst[y * dst_pitch + x * 4 + 3] = 255;
         }
     }
+
+    /* Upload and draw in one batch */
+    UpdateTexture(floor_gpu, floor_img.data);
+    Rectangle src_rect = { 0.0f, 0.0f, (float)view_w, (float)view_h };
+    Rectangle dst_rect = { (float)view_x, (float)view_y, (float)view_w, (float)view_h };
+    DrawTexturePro(floor_gpu, src_rect, dst_rect, (Vector2){0.0f, 0.0f}, 0.0f, WHITE);
+
     return janet_wrap_nil();
 }
 

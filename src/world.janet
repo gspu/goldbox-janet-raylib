@@ -15,6 +15,8 @@
 #   map / endmap  — 16×16 grid of tile characters
 #   npc ID "Name" X Y / endnpc  — NPC with dialog lines
 
+(import ./rng)
+
 (def MAP-W 16)
 (def MAP-H 16)
 
@@ -215,17 +217,17 @@
 # ── Monster spawn tables ───────────────────────────────────────
 
 (def MONSTER-DEFS
-  {:baaz-draconian  @{:name "Baaz Draconian"  :hp 18 :hp-max 18 :ac 4  :thac0 18 :xp 65   :alive true}
-   :kapak-draconian @{:name "Kapak Draconian" :hp 22 :hp-max 22 :ac 4  :thac0 17 :xp 120  :alive true}
-   :bozak-draconian @{:name "Bozak Draconian" :hp 26 :hp-max 26 :ac 3  :thac0 16 :xp 270  :alive true}
-   :sivak-draconian @{:name "Sivak Draconian" :hp 34 :hp-max 34 :ac 1  :thac0 15 :xp 650  :alive true}
-   :aurak-draconian @{:name "Aurak Draconian" :hp 40 :hp-max 40 :ac 2  :thac0 14 :xp 975  :alive true}
-   :blue-dragon     @{:name "Blue Dragon"     :hp 88 :hp-max 88 :ac -1 :thac0 10 :xp 7000 :alive true}
-   :skeleton        @{:name "Skeleton"        :hp 12 :hp-max 12 :ac 7  :thac0 19 :xp 35   :alive true}
-   :goblin          @{:name "Goblin"          :hp  8 :hp-max  8 :ac 6  :thac0 20 :xp 15   :alive true}
-   :wolf            @{:name "Dark Wolf"       :hp 14 :hp-max 14 :ac 6  :thac0 19 :xp 25   :alive true}
-   :sea-serpent     @{:name "Sea Serpent"     :hp 30 :hp-max 30 :ac 3  :thac0 15 :xp 500  :alive true}
-   :red-dragon      @{:name "Red Dragon"      :hp 80 :hp-max 80 :ac 0  :thac0 11 :xp 6000 :alive true}})
+  {:baaz-draconian  @{:name "Baaz Draconian"  :hp 18 :hp-max 18 :ac 4  :thac0 18 :xp 65   :alive true :status :alive}
+   :kapak-draconian @{:name "Kapak Draconian" :hp 22 :hp-max 22 :ac 4  :thac0 17 :xp 120  :alive true :status :alive}
+   :bozak-draconian @{:name "Bozak Draconian" :hp 26 :hp-max 26 :ac 3  :thac0 16 :xp 270  :alive true :status :alive}
+   :sivak-draconian @{:name "Sivak Draconian" :hp 34 :hp-max 34 :ac 1  :thac0 15 :xp 650  :alive true :status :alive}
+   :aurak-draconian @{:name "Aurak Draconian" :hp 40 :hp-max 40 :ac 2  :thac0 14 :xp 975  :alive true :status :alive}
+   :blue-dragon     @{:name "Blue Dragon"     :hp 88 :hp-max 88 :ac -1 :thac0 10 :xp 7000 :alive true :status :alive}
+   :skeleton        @{:name "Skeleton"        :hp 12 :hp-max 12 :ac 7  :thac0 19 :xp 35   :alive true :status :alive}
+   :goblin          @{:name "Goblin"          :hp  8 :hp-max  8 :ac 6  :thac0 20 :xp 15   :alive true :status :alive}
+   :wolf            @{:name "Dark Wolf"       :hp 14 :hp-max 14 :ac 6  :thac0 19 :xp 25   :alive true :status :alive}
+   :sea-serpent     @{:name "Sea Serpent"     :hp 30 :hp-max 30 :ac 3  :thac0 15 :xp 500  :alive true :status :alive}
+   :red-dragon      @{:name "Red Dragon"      :hp 80 :hp-max 80 :ac 0  :thac0 11 :xp 6000 :alive true :status :alive}})
 
 (defn make-monster [kind]
   (merge @{} (MONSTER-DEFS kind)))
@@ -308,12 +310,12 @@
 # ── Random encounter ───────────────────────────────────────────
 
 (defn encounter-check? []
-  (= 0 (% (math/floor (* (math/random) 32)) 32)))
+  (= 0 (rng/rand-int 32)))
 
 (defn random-encounter [level]
   (let [table (or (ENCOUNTER-TABLE level) [])]
     (if (pos? (length table))
-      (let [group (table (% (math/floor (* (math/random) (length table))) (length table)))]
+      (let [group (table (rng/rand-int (length table)))]
         (map make-monster group))
       [])))
 

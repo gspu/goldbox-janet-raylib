@@ -29,8 +29,8 @@
     :thac0   (ch :thac0)  :ac     (ch :ac)
     :hp      (ch :hp)     :hp-max (ch :hp-max)
     :xp      (ch :xp)     :level  (ch :level)
-    :alive   (ch :alive)  :spells (ch :spells)
-    :active  (ch :active)})
+    :alive   (ch :alive)  :status (ch :status)
+    :spells  (ch :spells) :active (ch :active)})
 
 (defn- serialise-world [w]
   @{:level    (w :level)
@@ -90,7 +90,8 @@
     :thac0   (sc :thac0)  :ac     (sc :ac)
     :hp      (sc :hp)     :hp-max (sc :hp-max)
     :xp      (sc :xp)     :level  (sc :level)
-    :alive   (sc :alive)  :spells (sc :spells)})
+    :alive   (sc :alive)  :status (sc :status)
+    :spells  (sc :spells)})
 
 (defn load! [state slot]
   "Load from slot 0-9 into state. Returns true on success."

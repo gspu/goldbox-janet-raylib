@@ -32,7 +32,7 @@ MODULE = janet_raylib.so
 SRC    = janet_raylib.c
 
 # ── Targets ───────────────────────────────────────────────────
-.PHONY: all native clean run exe symbols debug show-entry show-symbols
+.PHONY: all native clean run test exe symbols debug show-entry show-symbols
 
 all: native
 
@@ -45,6 +45,9 @@ src/$(MODULE): $(SRC) Makefile
 
 run: native
 	cd src && JANET_PATH=. $(JANET) main.janet
+
+test: native
+	cd src && JANET_PATH=. $(JANET) test_core.janet
 
 # ── Native executable via jpm ─────────────────────────────────
 #

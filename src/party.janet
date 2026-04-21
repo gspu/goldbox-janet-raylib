@@ -16,6 +16,7 @@
     :xp        0
     :level     3
     :alive     true
+    :status    :alive
     :spells    spells
     :active    false})
 
@@ -34,7 +35,8 @@
 (defn take-damage! [ch dmg]
   (put ch :hp (max 0 (- (ch :hp) dmg)))
   (when (<= (ch :hp) 0)
-    (put ch :alive false)))
+    (put ch :alive false)
+    (put ch :status :dead)))
 
 (defn heal! [ch amt]
   (when (alive? ch)
