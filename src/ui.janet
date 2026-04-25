@@ -111,6 +111,33 @@
 (def FOV 1.0472)       # 60° total field of view in radians (pi/3)
 (def VIEW-DEPTH 16)    # max ray distance in tiles
 
+# Cached player direction vectors — recomputed only when dir changes
+(var cached-dir nil)
+(var cached-vectors nil)
+
+(defn- get-player-vectors [player]
+  "Return {:dir-x :dir-y :plane-x :plane-y} for the player.
+   Uses caching to avoid recalculating trig functions every frame."
+  (let [dir (player :dir)]
+    (if (= dir cached-dir)
+      cached-vectors
+      (let [angle (case dir
+                    :east   0.0
+                    :south  1.5708
+                    :west   3.1416
+                    :north  4.7124
+                    0.0)
+            cam-len (math/tan (/ FOV 2))
+            dir-x   (math/cos angle)
+            dir-y   (math/sin angle)
+            plane-x (* (- dir-y) cam-len)
+            plane-y (* dir-x     cam-len)
+            vectors {:dir-x dir-x :dir-y dir-y
+                     :plane-x plane-x :plane-y plane-y}]
+        (set cached-dir dir)
+        (set cached-vectors vectors)
+        vectors))))
+
 (defn- dda-cast [tiles px py ray-dx ray-dy]
   "DDA ray cast from (px,py) in direction (ray-dx, ray-dy).
    Returns [tile perp-dist side] where side is :x or :y wall face,
@@ -121,8 +148,8 @@
   (var map-y (math/floor py))
 
   # Length of ray to cross one full cell in each axis
-  (def delta-x (if (= ray-dx 0) 1e30 (math/abs (/ 1 ray-dx))))
-  (def delta-y (if (= ray-dy 0) 1e30 (math/abs (/ 1 ray-dy))))
+  (var delta-x (if (= ray-dx 0) 1e30 (math/abs (/ 1 ray-dx))))
+  (var delta-y (if (= ray-dy 0) 1e30 (math/abs (/ 1 ray-dy))))
 
   # Step direction and initial side distances
   (var step-x 0)
@@ -217,17 +244,12 @@
               VIEW-W (math/ceil  (/ PANEL-H 2)) col-floor))
 
   (let [# Map Y increases downward (row 0 = top of map).
-        angle (case (player :dir)
-                :east   0.0
-                :south  1.5708
-                :west   3.1416
-                :north  4.7124
-                0.0)
-        cam-len (math/tan (/ FOV 2))
-        dir-x   (math/cos angle)
-        dir-y   (math/sin angle)
-        plane-x (* (- dir-y) cam-len)
-        plane-y (* dir-x     cam-len)
+        # Use cached vectors to avoid recalculating trig functions
+        vecs     (get-player-vectors player)
+        dir-x   (vecs :dir-x)
+        dir-y   (vecs :dir-y)
+        plane-x (vecs :plane-x)
+        plane-y (vecs :plane-y)
         half    (/ PANEL-H 2)]
 
     # Floor / ceiling texture overlay — drawn before walls
@@ -239,10 +261,16 @@
         dir-x dir-y plane-x plane-y
         VIEW-X PANEL-Y VIEW-W PANEL-H))
 
-    (for screen-x 0 VIEW-W
-      (let [cam-x  (- (* 2 (/ screen-x VIEW-W)) 1)
+    # Pre-compute ray directions for all screen columns
+    (var ray-dirs @[])
+    (for i 0 VIEW-W
+      (let [cam-x  (- (* 2 (/ i VIEW-W)) 1)
             ray-dx (+ dir-x (* plane-x cam-x))
-            ray-dy (+ dir-y (* plane-y cam-x))
+            ray-dy (+ dir-y (* plane-y cam-x))]
+        (array/push ray-dirs [ray-dx ray-dy])))
+
+    (for screen-x 0 VIEW-W
+      (let [[ray-dx ray-dy] (ray-dirs screen-x)
             # +0.5 places the ray origin at tile centre
             [tile perp-dist side wall-u]
               (dda-cast tiles (+ (player :x) 0.5) (+ (player :y) 0.5) ray-dx ray-dy)]
