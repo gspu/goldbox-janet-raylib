@@ -268,7 +268,7 @@
   (def target (monsters 0))
   (assert= "initial status" :alive (target :status))
   (assert-true "initially alive" (target :alive))
-  (combat/hero-cast-spell! cs (p 0) "Sleep" target)
+  (combat/hero-cast-spell! cs (p 0) "Sleep" target p)
   (assert= "status after sleep" :asleep (target :status))
   (assert-true "still alive=true after sleep" (target :alive))
   (assert-false "can-act? after sleep" (combat/can-act? target)))
@@ -278,7 +278,7 @@
   (def monsters [(world/make-monster :goblin)])
   (def cs (combat/make-combat p monsters))
   (def target (monsters 0))
-  (combat/hero-cast-spell! cs (p 0) "Hold Person" target)
+  (combat/hero-cast-spell! cs (p 0) "Hold Person" target p)
   (assert= "status after hold" :held (target :status))
   (assert-true "still alive=true after hold" (target :alive))
   (assert-false "can-act? after hold" (combat/can-act? target)))
@@ -289,7 +289,7 @@
   (def cs (combat/make-combat p monsters))
   (def raistlin (p 1))  # Wizard
   (def orig-ac (raistlin :ac))
-  (combat/hero-cast-spell! cs raistlin "Mirror Image" raistlin)
+  (combat/hero-cast-spell! cs raistlin "Mirror Image" raistlin p)
   (assert= "base AC unchanged" orig-ac (raistlin :ac))
   (assert= "effective AC improved" (- orig-ac 2) (combat/effective-ac cs raistlin))
   (assert-true "buff recorded" (get-in cs [:buffs (raistlin :name)])))
@@ -300,7 +300,7 @@
   (def cs (combat/make-combat p monsters))
   (def goldmoon (p 2))  # Cleric
   (def orig-thac0 (goldmoon :thac0))
-  (combat/hero-cast-spell! cs goldmoon "Bless" goldmoon)
+  (combat/hero-cast-spell! cs goldmoon "Bless" goldmoon p)
   (assert= "base THAC0 unchanged" orig-thac0 (goldmoon :thac0))
   (assert= "effective THAC0 improved" (- orig-thac0 1) (combat/effective-thac0 cs goldmoon))
   (assert-true "buff recorded" (get-in cs [:buffs (goldmoon :name)])))
@@ -311,16 +311,16 @@
   (def cs (combat/make-combat p monsters))
   (def target (monsters 0))
   (def orig-hp (target :hp))
-  (combat/hero-cast-spell! cs (p 0) "Magic Missile" target)
+  (combat/hero-cast-spell! cs (p 0) "Magic Missile" target p)
   (assert-true "damage dealt" (< (target :hp) orig-hp)))
 
 (suite "Combat — Cure Light Wounds heals"
   (def p (make-test-party))
   (def monsters [(world/make-monster :goblin)])
   (def cs (combat/make-combat p monsters))
-  (party/take-damage! (p 0) 5)
+  (party/take-damage! (p 0) 1)
   (def hp-before ((p 0) :hp))
-  (combat/hero-cast-spell! cs (p 2) "Cure Light Wounds" (p 0))
+  (combat/hero-cast-spell! cs (p 2) "Cure Light Wounds" (p 0) p)
   (assert-true "HP increased" (> ((p 0) :hp) hp-before)))
 
 (suite "Combat — hero-attack! sets :status :dead on kill"
@@ -332,7 +332,7 @@
   (var attempts 0)
   (while (and (combat/can-act? weak-monster) (< attempts 50))
     (when (combat/hero-turn? cs)
-      (combat/hero-attack! cs (p 0) 0))
+      (combat/hero-attack! cs (p 0) 0 p))
     (++ attempts))
   # If we killed it, verify status
   (when (not (weak-monster :alive))
@@ -376,7 +376,7 @@
   (var found-monster false)
   (var steps 0)
   (while (and (not found-monster) (< steps 20))
-    (combat/advance-turn! cs)
+    (combat/advance-turn! cs p)
     (when (combat/hero-turn? cs)
       # If it's a hero's turn, they shouldn't be able to act
       (assert-false "asleep hero shouldn't get turn" (combat/can-act? ((combat/active-combatant cs) :ref))))
@@ -400,7 +400,7 @@
   (def monsters [(world/make-monster :goblin)])
   (def cs (combat/make-combat p monsters))
   # Flee may succeed or fail; just verify it returns a valid phase
-  (def phase (combat/hero-flee! cs))
+  (def phase (combat/hero-flee! cs p))
   (assert-true "flee returns valid phase" (or (= phase :fled) (= phase :active))))
 
 # ── World Tests ───────────────────────────────────────────────

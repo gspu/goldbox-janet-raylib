@@ -182,7 +182,8 @@
 (defn- handle-combat [state key]
   (let [cs      (state :combat)
         par     (state :party)
-        hero    ((state :party) (state :active-idx))
+        comb    (combat/active-combatant cs)
+        hero    (when (and comb (= :hero (comb :kind))) (comb :ref))
         targets (combat/living-monsters cs)]
 
     (when (combat/hero-turn? cs)
@@ -190,7 +191,7 @@
         # Attack
         (or (= key rl/SC_A) (= key rl/SC_RETURN))
           (let [idx 0          # always target the first living monster
-                phase (combat/hero-attack! cs hero idx)]
+                phase (combat/hero-attack! cs hero idx par)]
             (when (= phase :victory)
               (let [xp (combat/xp-reward cs)]
                 (party/award-xp! par xp)
@@ -199,7 +200,9 @@
                 (set-mode! state :explore)))
             (when (= phase :defeat)
               (msg! state "Your party has been slain...")
-              (put state :running false)))
+              (put state :running false))
+            (when (= phase :active)
+              (combat/advance-turn! cs par)))
 
         # Cycle target (up/down arrow)
         (or (= key rl/SC_UP) (= key rl/SC_DOWN))
@@ -219,11 +222,13 @@
 
         # Flee
         (= key rl/SC_F)
-          (let [phase (combat/hero-flee! cs)]
+          (let [phase (combat/hero-flee! cs par)]
             (when (or (= phase :fled) (not= phase :active))
               (msg! state "The party escapes!")
               (put state :combat nil)
-              (set-mode! state :explore)))))))
+              (set-mode! state :explore))
+            (when (= phase :active)
+              (combat/advance-turn! cs par)))))))
 
 # ── Dialog handler ────────────────────────────────────────────
 
@@ -519,7 +524,8 @@
 (defn- handle-spell-select [state key]
   (let [cs      (state :combat)
         par     (state :party)
-        hero    ((state :party) (state :active-idx))
+        comb    (combat/active-combatant cs)
+        hero    (when (and comb (= :hero (comb :kind))) (comb :ref))
         sm      (state :spell-menu)
         spells  (hero :spells)
         n-sp    (length spells)
@@ -564,7 +570,7 @@
               real-tgt (or target hero)]
           (put state :spell-menu nil)
           (set-mode! state :combat)
-          (let [phase (combat/hero-cast-spell! cs hero spell real-tgt)]
+          (let [phase (combat/hero-cast-spell! cs hero spell real-tgt par)]
             (msg! state (string (hero :name) " casts " spell
                                 " on " (real-tgt :name) "!"))
             (when (= phase :victory)
@@ -575,7 +581,9 @@
                 (set-mode! state :explore)))
             (when (= phase :defeat)
               (msg! state "Your party has been slain...")
-              (put state :running false)))))))
+              (put state :running false))
+            (when (= phase :active)
+              (combat/advance-turn! cs par)))))))
 
 (defn dispatch-key! [state key]
   "Route a keydown scancode to the correct mode handler."

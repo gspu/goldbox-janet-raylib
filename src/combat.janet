@@ -6,49 +6,58 @@
 
 (defn make-combat [party-members monsters]
   "Build a fresh combat state table.
-   Rolls initiative for every participant and sorts descending.
+   All living party members fight.
+   Monsters roll initiative and act after heroes.
    Assigns isometric grid starting positions: heroes on left,
    monsters on right of a 12×8 battlefield."
-  (let [combatants
-        (array/concat
-          (map (fn [ch]
-                 @{:kind      :hero
-                   :ref       ch
-                   :name      (ch :name)
-                   :initiative (+ (rng/d6) (party/stat-mod (ch :dex)))})
-               (filter party/alive? party-members))
-          (map (fn [m]
-                 @{:kind       :monster
-                   :ref        m
-                   :name       (m :name)
-                   :initiative (rng/d6)})
-               monsters))]
-    (sort-by |(- ($ :initiative)) combatants)
+  # Build hero combatants for all living party members
+  (def heroes @[])
+  (each pm party-members
+    (when (party/alive? pm)
+      (array/push heroes @{:kind       :hero
+                          :ref        pm
+                          :name       (pm :name)
+                          :party-idx  (length heroes)
+                          :initiative (+ (rng/d6) (party/stat-mod (pm :dex)))})))
 
-    # Assign starting grid positions.
-    # Heroes occupy cols 1-2 on the left, monsters cols 8-10 on the right.
-    # Rows are staggered so figures never overlap.
-    (def hero-slots    [[2 0] [1 2] [2 4] [1 6]])
-    (def monster-slots [[9 0] [10 2] [9 4] [10 6] [8 1] [11 3] [8 5] [10 0]])
-    (def positions @{})
-    (var hero-n 0)
-    (var mon-n  0)
-    (eachp [i c] combatants
-      (if (= :hero (c :kind))
-        (do (when (< hero-n (length hero-slots))
-              (put positions i (hero-slots hero-n)))
-            (++ hero-n))
-        (do (when (< mon-n (length monster-slots))
-              (put positions i (monster-slots mon-n)))
-            (++ mon-n))))
+  # Build monster combatants with initiative
+  (def monster-combatants
+    (map (fn [m]
+           @{:kind       :monster
+             :ref        m
+             :name       (m :name)
+             :initiative (rng/d6)})
+         monsters))
 
-    @{:combatants combatants
-      :monsters   monsters
-      :positions  positions
-      :turn-idx   0
-      :phase      :active   # :active | :victory | :defeat
-      :buffs      @{}
-      :log        @[]}))
+  # Combine: heroes first, then monsters sorted by initiative
+  (def combatants
+    (array/concat heroes (sort-by |(- ($ :initiative)) monster-combatants)))
+
+  # Assign starting grid positions.
+  # Heroes on left, monsters on right.
+  (def positions @{})
+  # Place heroes in rows on left side (column 2, increasing rows)
+  (var hero-row 0)
+  (eachp [i c] combatants
+    (when (= :hero (c :kind))
+      (put positions i [2 hero-row])
+      (set hero-row (+ hero-row 1))
+      (when (>= hero-row 8) (set hero-row 0))))
+  # Place monsters on right side
+  (var mon-n 0)
+  (eachp [i c] combatants
+    (when (= :monster (c :kind))
+      (when (< mon-n 8)
+        (put positions i [(+ 8 (mod mon-n 4)) (if (even? mon-n) 0 2)])
+        (++ mon-n))))
+
+  @{:combatants combatants
+    :monsters   monsters
+    :positions  positions
+    :turn-idx   0
+    :phase      :active   # :active | :victory | :defeat
+    :buffs      @{}
+    :log        @[]})
 
 # ── Logging ───────────────────────────────────────────────────
 
@@ -138,15 +147,19 @@
 
 # ── Phase checks ──────────────────────────────────────────────
 
-(defn- check-victory! [state heroes monsters]
-  (when (all |(= ($ :status) :dead) monsters)
-    (put state :phase :victory)
-    (log! state "Victory! The enemy is defeated.")))
+(defn- check-victory! [state]
+  (let [monsters (state :monsters)]
+    (when (all |(= ($ :status) :dead) monsters)
+      (put state :phase :victory)
+      (log! state "Victory! The enemy is defeated."))))
 
-(defn- check-defeat! [state heroes]
-  (when (all |(= ($ :status) :dead) heroes)
-    (put state :phase :defeat)
-    (log! state "The party has fallen... Game over.")))
+(defn- check-defeat! [state]
+  (let [heroes (filter |(and (= :hero ($ :kind)) (can-act? ($ :ref))) (state :combatants))]
+    (when (empty? heroes)
+      (put state :phase :defeat)
+      (log! state "The party has fallen... Game over."))))
+
+
 
 # ── Public API ────────────────────────────────────────────────
 
@@ -165,90 +178,73 @@
 (defn living-heroes [state combatants]
   (filter |(and (= :hero ($ :kind)) (can-act? ($ :ref))) combatants))
 
-(defn advance-turn! [state]
-  "Move to the next combatant, skipping dead/incapacitated ones.
-   Returns the new phase keyword."
-  (let [cs    (state :combatants)
-        total (length cs)]
+(defn advance-turn! [state party]
+  (let [cs (state :combatants) total (length cs)]
     (when (pos? total)
-      (var steps 0)
-      (put state :turn-idx (% (+ (state :turn-idx) 1) total))
-      # Skip dead/incapacitated combatants (guard against infinite loop)
-      (while (and (< steps total)
-                  (let [c (cs (state :turn-idx))]
-                    (not (can-act? (c :ref)))))
+      # Loop up to total times to find the next combatant that can act.
+      (var tries 0)
+      (var done false)
+      (while (and (< tries total) (not done) (= :active (state :phase)))
+        # Move to next combatant
         (put state :turn-idx (% (+ (state :turn-idx) 1) total))
-        (++ steps))
-      # Auto-run monster turns immediately
-      (let [c (cs (state :turn-idx))]
-        (when (and (= :monster (c :kind)) (can-act? (c :ref))
-                   (= :active (state :phase)))
-          (let [heroes (map |($ :ref) (living-heroes state cs))]
-            (monster-turn! state c heroes)
-            (check-victory! state heroes (state :monsters))
-            (check-defeat!  state heroes)
-            (when (= :active (state :phase))
-              (advance-turn! state)))))))
-  (state :phase))
+        (let [c (cs (state :turn-idx))]
+          (when (can-act? (c :ref))
+            (cond
+              (= :monster (c :kind))
+                (do
+                  (let [hs (map |($ :ref) (living-heroes state cs))]
+                    (monster-turn! state c hs)
+                    (check-victory! state)
+                    (check-defeat! state))
+                  # after monster turn, continue loop to next combatant
+                  )
+              (= :hero (c :kind))
+                (do
+                  # set this hero as active in party
+                  (let [hero-ref (c :ref)]
+                    (each ch party (put ch :active false))
+                    (put hero-ref :active true))
+                  (set done true))
+              # else: unknown kind, stop
+              (set done true))))
+        (++ tries))
+      (when (>= tries total)
+        # No combatant could act; ensure phase is updated
+        (check-victory! state)
+        (check-defeat! state))
+      (state :phase))))
 
-(defn hero-attack! [state hero target-idx]
-  "The active hero attacks the monster at target-idx.
-   Returns the new phase keyword."
-  (let [monsters (living-monsters state)]
-    (when (and (< target-idx (length monsters)) (= :active (state :phase)))
-      (let [target    (monsters target-idx)
-            [hit dmg] (resolve-attack state hero target)]
+(defn hero-attack! [state hero target-idx party]
+  (let [mns (living-monsters state)]
+    (when (and (< target-idx (length mns)) (= :active (state :phase)))
+      (let [tgt (mns target-idx) [hit dmg] (resolve-attack state hero tgt)]
         (if hit
-          (do
-            (put target :hp (max 0 (- (target :hp) dmg)))
-            (when (<= (target :hp) 0)
-              (put target :alive false)
-              (put target :status :dead))
-            (log! state (string (hero :name) " hits " (target :name)
-                                " for " dmg " damage!"
-                                (if (not (target :alive)) " Slain!" ""))))
-          (log! state (string (hero :name) " misses " (target :name) ".")))))
-    (let [heroes (map |($ :ref)
-                      (filter |(= :hero ($ :kind)) (state :combatants)))]
-      (check-victory! state heroes (state :monsters))
-      (check-defeat!  state heroes))
-    (when (= :active (state :phase))
-      (advance-turn! state)))
+          (do (put tgt :hp (max 0 (- (tgt :hp) dmg)))
+              (when (<= (tgt :hp) 0) (put tgt :alive false) (put tgt :status :dead))
+              (log! state (string (hero :name) " hits " (tgt :name) " for " dmg " dmg!" (if (not (tgt :alive)) " Slain!" ""))))
+          (log! state (string (hero :name) " misses " (tgt :name) "."))))
+      (let [hs (map |($ :ref) (filter |(= :hero ($ :kind)) (state :combatants)))]
+        (check-victory! state)
+        (check-defeat! state))
+      ))
   (state :phase))
 
-(defn hero-cast-spell! [state caster spell-name target]
-  "The caster uses spell-name on target.
-   target may be a hero (for healing) or a monster (for offensive spells)."
+(defn hero-cast-spell! [state caster spell-name target party]
   (resolve-spell caster spell-name target state (fn [msg] (log! state msg)))
-  (let [heroes (map |($ :ref)
-                    (filter |(= :hero ($ :kind)) (state :combatants)))]
-    (check-victory! state heroes (state :monsters))
-    (check-defeat!  state heroes))
-  (when (= :active (state :phase))
-    (advance-turn! state))
+  (check-victory! state)
+  (check-defeat! state)
+  (when (= :active (state :phase)) (advance-turn! state party))
   (state :phase))
 
-(defn hero-flee! [state]
-  "50 % chance to escape; on failure the monsters get a free round."
+(defn hero-flee! [state party]
   (if (rng/rand-bool)
-    (do
-      (log! state "The party flees!")
-      (put state :phase :fled))
-    (do
-      (log! state "Escape blocked!")
-      (advance-turn! state)))
+    (do (log! state "The party flees!") (put state :phase :fled))
+    (do (log! state "Escape blocked!")))
   (state :phase))
 
 (defn combat-log [state]
-  "Return the last 6 log entries."
-  (let [lg (state :log)
-        n  (length lg)]
-    (if (<= n 6)
-      lg
-      (array/slice lg (- n 6)))))
+  (let [lg (state :log) n (length lg)]
+    (if (<= n 6) lg (array/slice lg (- n 6)))))
 
 (defn xp-reward [state]
-  "Sum XP values of all slain monsters."
-  (reduce (fn [acc m] (+ acc (if (= (m :status) :dead) (m :xp) 0)))
-          0
-          (state :monsters)))
+  (reduce (fn [acc m] (+ acc (if (= (m :status) :dead) (m :xp) 0))) 0 (state :monsters)))

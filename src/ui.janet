@@ -71,19 +71,19 @@
 
 (defn- fill [x y w h col]
   (set-col col)
-  (rl/fill-rect x y w h))
+  (rl/fill-rect (math/floor x) (math/floor y) w h))
 
 (defn- outline [x y w h col]
   (set-col col)
-  (rl/draw-rect x y w h))
+  (rl/draw-rect (math/floor x) (math/floor y) w h))
 
 (defn- line [x1 y1 x2 y2 col]
   (set-col col)
-  (rl/draw-line x1 y1 x2 y2))
+  (rl/draw-line (math/floor x1) (math/floor y1) (math/floor x2) (math/floor y2)))
 
 (defn- text [font str x y col]
   (let [[r g b a] col]
-    (rl/draw-text font str x y r g b a)))
+    (rl/draw-text font str (math/floor x) (math/floor y) r g b a)))
 
 # ── HP bar helper ────────────────────────────────────────────
 
@@ -519,8 +519,8 @@
                 (- MINI-CELL 1) (- MINI-CELL 1)
                 col))))
     # Player arrow
-    (let [px (+ off-x (* (player :x) MINI-CELL) (/ MINI-CELL 2))
-          py (+ off-y (* (player :y) MINI-CELL) (/ MINI-CELL 2))]
+    (let [px (math/floor (+ off-x (* (player :x) MINI-CELL) (/ MINI-CELL 2)))
+          py (math/floor (+ off-y (* (player :y) MINI-CELL) (/ MINI-CELL 2)))]
       (fill (- px 3) (- py 3) 6 6 COL-CYAN))))
 
 # ── Title bar ─────────────────────────────────────────────────
@@ -962,7 +962,7 @@
   (outline bx by bw 20
            (if is-enemy COL-RED COL-GOLD))
   (let [ch-w 9
-        tx   (+ bx (- (/ bw 2) (/ (* (length entity-name) ch-w) 2)))]
+        tx   (+ bx (- (/ bw 2) (math/floor (/ (* (length entity-name) ch-w) 2))))]
     (text font entity-name tx (+ by 4)
           (if is-enemy COL-RED COL-GOLD)))
 
