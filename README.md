@@ -4,6 +4,8 @@ A "vibe" recreation of the SSI Gold Box RPG engine,
 written in [Janet](https://janet-lang.org/) with a raylib C native module,
 targeting **FreeBSD** and **Linux**.
 
+![screen0](https://github.com/gspu/goldbox-janet-raylib/blob/main/screen0.png)
+
 ```
 ╔══════════════════════════════════════════════════════════════════════════════════════╗
 ║  Arrows:Move  T:Talk  C:Rest  I:Inv  A:Attack  S:Spell  F:Flee  F10:Save  ESC:Quit ║
